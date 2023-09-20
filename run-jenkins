@@ -39,6 +39,8 @@ if [ -n "$5" ]
 		return
 fi
 
+docker network create pipokernet
+
 docker run -d \
 	-p 8080:8080 \
 	-p 50000:50000 \
