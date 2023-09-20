@@ -1,0 +1,81 @@
+jenkins:
+  securityRealm:
+    local:
+      allowsSignup: false
+      users:
+        - id: ${JENKINS_ADMIN_LOGIN}
+          password: ${JENKINS_ADMIN_PASSWORD}
+  authorizationStrategy:
+    globalMatrix:
+      permissions:
+        - "Overall/Administer:admin"
+        - "Overall/Read:authenticated"
+  remotingSecurity:
+    enabled: true
+credentials:
+  system:
+    domainCredentials:
+      - credentials:
+          - string:
+              scope: GLOBAL
+              id: GitHub
+              secret: ${GIT_HUB_TOKEN}
+              description: "GitHub token"
+          - usernamePassword:
+              scope: GLOBAL
+              id: DockerHub
+              username: ${DOCKER_HUB_USERNAME}
+              password: ${DOCKER_HUB_PASSWORD}
+              description: "DockerHub login"
+tool:
+  maven:
+    installations:
+      - name: maven-3.6.3
+        properties:
+          - installSource:
+              installers:
+                - maven:
+                    id: "3.6.3"
+  mavenGlobalConfig:
+    globalSettingsProvider: "standard"
+    settingsProvider: "standard"
+  jdk:
+    installations:
+      - name: openjdk17
+        home: "/opt/java/openjdk"
+unclassified:
+  location:
+    url: http://jenkins:8080/
+jobs:
+  - script: >
+      pipelineJob('pipoker-api') {
+        definition {
+          cpsScm {
+            scm {
+              git {
+                remote {
+                  url('https://github.com/LordDetson/pipoker-api.git')
+                }
+                branch('*/main')
+              }
+            }
+            lightweight()
+          }
+        }
+      }
+  - script: >
+      pipelineJob('pipoker-web') {
+        definition {
+          cpsScm {
+            scm {
+              git {
+                remote {
+                  url('https://github.com/LordDetson/pipoker-web.git')
+                }
+                branch('*/main')
+              }
+            }
+            lightweight()
+          }
+        }
+      }

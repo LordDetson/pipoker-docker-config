@@ -1,0 +1,53 @@
+#!/bin/bash
+if [ -n "$1" ]
+	then
+		github_token=$1
+	else
+		echo "Github token required"
+		return
+fi
+
+if [ -n "$2" ]
+	then
+		jadmin=$2
+	else
+		echo "Jenkins username required"
+		return
+fi
+
+if [ -n "$3" ]
+	then
+		jpassword=$3
+	else
+		echo "Jenkins password required"
+		return
+fi
+
+if [ -n "$4" ]
+	then
+		docker_hub_username=$4
+	else
+		echo "Docker Hub username required"
+		return
+fi
+
+if [ -n "$5" ]
+	then
+		docker_hub_password=$5
+	else
+		echo "Docker Hub password required"
+		return
+fi
+
+docker run -d \
+	-p 8080:8080 \
+	-p 50000:50000 \
+	--network pipokernet \
+	-v /var/run/docker.sock:/var/run/docker.sock \
+	-e JENKINS_ADMIN_LOGIN=$jadmin \
+	-e JENKINS_ADMIN_PASSWORD=$jpassword \
+	-e GIT_HUB_TOKEN=$github_token \
+	-e DOCKER_HUB_USERNAME=$docker_hub_username \
+	-e DOCKER_HUB_PASSWORD=$docker_hub_password \
+	--name jenkins \
+	pipoker/jenkins
