@@ -46,9 +46,20 @@ tool:
 unclassified:
   location:
     url: http://jenkins:8080/
+  gitHubPluginConfig:
+    configs:
+    - credentialsId: "GitHub"
+      name: "GitHub hook"
+    hookUrl: "http://jenkins:8080/github-webhook/"
 jobs:
   - script: >
       pipelineJob('pipoker-api') {
+        properties {
+          githubProjectUrl("https://github.com/LordDetson/pipoker-api/")
+        }
+        triggers {
+          githubPush()
+        }
         definition {
           cpsScm {
             scm {
@@ -65,6 +76,12 @@ jobs:
       }
   - script: >
       pipelineJob('pipoker-web') {
+        properties {
+          githubProjectUrl("https://github.com/LordDetson/pipoker-web")
+        }
+        triggers {
+          githubPush()
+        }
         definition {
           cpsScm {
             scm {
