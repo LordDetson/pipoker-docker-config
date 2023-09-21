@@ -39,6 +39,14 @@ if [ -n "$5" ]
 		return
 fi
 
+if [ -n "$6" ]
+	then
+		server_ip=$6
+	else
+		echo "Docker Hub password required"
+		return
+fi
+
 docker network create pipokernet
 
 docker run -d \
@@ -51,5 +59,6 @@ docker run -d \
 	-e GIT_HUB_TOKEN=$github_token \
 	-e DOCKER_HUB_USERNAME=$docker_hub_username \
 	-e DOCKER_HUB_PASSWORD=$docker_hub_password \
+	-e SERVER_IP=$server_ip \
 	--name jenkins \
 	pipoker/jenkins

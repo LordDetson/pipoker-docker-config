@@ -45,12 +45,12 @@ tool:
         home: "/opt/java/openjdk"
 unclassified:
   location:
-    url: http://jenkins:8080/
+    url: http://${SERVER_IP}:8080/
   gitHubPluginConfig:
     configs:
     - credentialsId: "GitHub"
       name: "GitHub hook"
-    hookUrl: "http://jenkins:8080/github-webhook/"
+    hookUrl: "http://${SERVER_IP}:8080/github-webhook/"
 jobs:
   - script: >
       pipelineJob('pipoker-api') {
