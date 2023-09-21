@@ -47,6 +47,22 @@ if [ -n "$6" ]
 		return
 fi
 
+if [ -n "$7" ]
+	then
+		broker_username=$7
+	else
+		echo "Message broker username required"
+		return
+fi
+
+if [ -n "$8" ]
+	then
+		broker_password=$8
+	else
+		echo "Message broker password required"
+		return
+fi
+
 docker network create pipokernet
 
 docker run -d \
@@ -60,5 +76,7 @@ docker run -d \
 	-e DOCKER_HUB_USERNAME=$docker_hub_username \
 	-e DOCKER_HUB_PASSWORD=$docker_hub_password \
 	-e SERVER_IP=$server_ip \
+	-e BROKER_USERNAME=$broker_username \
+	-e BROKER_PASSWORD=$broker_username \
 	--name jenkins \
 	pipoker/jenkins

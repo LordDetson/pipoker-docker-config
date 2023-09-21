@@ -27,6 +27,12 @@ credentials:
               username: ${DOCKER_HUB_USERNAME}
               password: ${DOCKER_HUB_PASSWORD}
               description: "DockerHub login"
+          - usernamePassword:
+              scope: GLOBAL
+              id: BrokerLogin
+              username: ${BROKER_USERNAME}
+              password: ${BROKER_PASSWORD}
+              description: "Message broker login"
 tool:
   maven:
     installations:
