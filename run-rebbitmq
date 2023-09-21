@@ -1,0 +1,28 @@
+#!/bin/bash
+if [ -n "$1" ]
+	then
+		username=$1
+	else
+		echo "RebbitMQ username required"
+		return
+fi
+
+if [ -n "$2" ]
+	then
+		password=$2
+	else
+		echo "RebbitMQ password required"
+		return
+fi
+
+docker network create pipokernet
+
+docker run -d \
+	-p 15671:15671 \
+	-p 15672:15672 \
+	-p 61613:61613 \
+	--network pipokernet \
+	-e RABBITMQ_DEFAULT_USER=$username \
+	-e RABBITMQ_DEFAULT_PASS=$password \
+	--name rebbitmq \
+	pipoker/rebbitmq-with-stomp
