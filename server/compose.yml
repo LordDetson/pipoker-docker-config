@@ -15,6 +15,10 @@ services:
       MONGO_INITDB_DATABASE: pipoker
       MONGODB_APP_USERNAME: ${MONGODB_APP_USERNAME:?}
       MONGODB_APP_PASSWORD: ${MONGODB_APP_PASSWORD:?}
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      interval: 5s
+      retries: 30
 
   rabbitmq:
     build: ../rebbitmq-image
@@ -23,13 +27,19 @@ services:
     environment:
       RABBITMQ_DEFAULT_USER: ${BROKER_USERNAME:?}
       RABBITMQ_DEFAULT_PASS: ${BROKER_PASSWORD:?}
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "check_port_connectivity"]
+      interval: 5s
+      retries: 30
 
   backend:
     image: ghcr.io/lorddetson/pipoker-controller:${BACKEND_TAG:-main}
     restart: unless-stopped
     depends_on:
-      - mongodb
-      - rabbitmq
+      mongodb:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
     environment:
       JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=75
       APP_PORT: 8080
