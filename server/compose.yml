@@ -1,5 +1,5 @@
 # One PiPoker environment (QA or PROD): database, broker, backend and web client.
-# Started by ./deploy with an environment file, e.g. qa.env or prod.env.
+# Started by ./update with an environment file: qa.env or prod.env.
 name: pipoker-${PIPOKER_ENV:?}
 
 services:

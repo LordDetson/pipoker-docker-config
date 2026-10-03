@@ -1,0 +1,56 @@
+name: Test
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  server:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Configure QA and PROD with the latest images from main
+        working-directory: server
+        run: |
+          for environment in qa prod; do
+            sed 's/_TAG=.*/_TAG=main/' "$environment.env.example" > "$environment.env"
+          done
+          printf 'PROD_DOMAIN=http://prod.localhost\nQA_DOMAIN=http://qa.localhost\n' > caddy/.env
+          echo "127.0.0.1 qa.localhost prod.localhost" | sudo tee -a /etc/hosts
+
+      - name: Start the server
+        working-directory: server
+        run: |
+          ./update
+          docker compose -f caddy/compose.yml up -d
+          # A second run must not change anything
+          ./update
+
+      - name: Check QA and PROD
+        working-directory: server
+        run: |
+          for environment in qa prod; do
+            url="http://$environment.localhost"
+            for attempt in $(seq 1 60); do
+              curl -fsS "$url/ws/info" > /dev/null && break
+              sleep 2
+            done
+            curl -fsS "$url/" | grep -q '<app-root'
+            curl -fsS "$url/room/some-room" | grep -q '<app-root'
+            node smoke-test.mjs "$url"
+          done
+
+      - name: Show logs
+        if: failure()
+        working-directory: server
+        run: |
+          for environment in qa prod; do
+            docker compose --env-file "$environment.env" -f compose.yml logs --tail 100
+          done
+          docker compose -f caddy/compose.yml logs --tail 100

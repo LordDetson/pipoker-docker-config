@@ -1,6 +1,7 @@
 # PiPoker server
 
-Runs the QA and PROD environments side by side on one Docker host, behind Caddy with automatic HTTPS.
+Runs the QA and PROD environments side by side on one Docker host (for example a home server),
+behind Caddy with automatic HTTPS.
 
 ```
 Caddy (80, 443) ── PROD_DOMAIN ── /ws → prod-backend, rest → prod-web
@@ -9,50 +10,55 @@ pipoker-prod: mongodb, rabbitmq, backend, web
 pipoker-qa:   mongodb, rabbitmq, backend, web
 ```
 
-Images come from GitHub Container Registry and are published by the CI of
-[pipoker-app](https://github.com/LordDetson/pipoker-app) and [pipoker-web](https://github.com/LordDetson/pipoker-web).
-Every push to main is deployed to QA. PROD is deployed by running the **Deploy** workflow manually
-with the commit SHA that was checked on QA; the `prod` environment asks for approval.
+The server pulls new versions itself, so GitHub never connects to it:
+- every push to main of [pipoker-app](https://github.com/LordDetson/pipoker-app) and
+  [pipoker-web](https://github.com/LordDetson/pipoker-web) publishes images tagged `qa`;
+- the **Promote to PROD** workflow in those repositories (with approval) tags a commit that was checked on QA as `prod`;
+- `./update`, run by cron every 2 minutes, pulls the `qa` and `prod` images and restarts what changed.
 
-## Server setup
+## Requirements
 
-1. Create a VM with Ubuntu (Oracle Cloud Always Free Ampere A1 is enough for both environments)
-   and open TCP 80 and 443 in its firewall. On Oracle images also open them in iptables:
-   ```
-   sudo iptables -I INPUT 6 -p tcp -m multiport --dports 80,443 -j ACCEPT
-   sudo netfilter-persistent save
-   ```
-2. Point the PROD and QA domains to the VM public IP (for example `pipoker` and `pipoker-qa` on duckdns.org).
-3. Install Docker with the compose plugin and create a deployment user:
+- Linux with Docker and the compose plugin, switched on all the time.
+- A public IP address. Compare the WAN address in the router settings with the one shown by https://2ip.ru;
+  if they differ, the provider uses CGNAT and the server is not reachable from the internet
+  (most providers give a public, often dynamic, address on request).
+- Ports 80 and 443 forwarded on the router to the server. Caddy needs them for the HTTPS certificates.
+
+## Setup
+
+1. Register two subdomains on https://www.duckdns.org, for example `pipoker` and `pipoker-qa`,
+   and note the token.
+2. Install Docker:
    ```
    curl -fsSL https://get.docker.com | sudo sh
-   sudo useradd -m -s /bin/bash -G docker deploy
+   sudo usermod -aG docker $USER   # log in again afterwards
    ```
-4. As `deploy`, clone this repository into the home directory and create the environment files:
+3. Clone this repository and create the configuration:
    ```
    git clone https://github.com/LordDetson/pipoker-docker-config.git
    cd pipoker-docker-config/server
    cp qa.env.example qa.env && cp prod.env.example prod.env   # set real passwords
    cp caddy/.env.example caddy/.env                            # set the domains
-   docker network create pipoker-edge
+   ./update
    docker compose -f caddy/compose.yml up -d
    ```
-5. Create an SSH key for GitHub Actions and allow it for `deploy`:
+4. Add the cron jobs (`crontab -e`): updates every 2 minutes and the DuckDNS address every 5 minutes,
+   because a home IP address can change.
    ```
-   ssh-keygen -t ed25519 -N "" -f pipoker-deploy
-   cat pipoker-deploy.pub >> ~/.ssh/authorized_keys
+   */2 * * * * $HOME/pipoker-docker-config/server/update >> $HOME/pipoker-update.log 2>&1
+   */5 * * * * curl -fsS "https://www.duckdns.org/update?domains=pipoker,pipoker-qa&token=<token>" > /dev/null
    ```
-6. In both pipoker-app and pipoker-web on GitHub (Settings → Secrets and variables → Actions):
-   - variables `DEPLOY_HOST` (VM address) and `DEPLOY_USER` (`deploy`);
-   - secrets `DEPLOY_SSH_KEY` (content of `pipoker-deploy`) and `DEPLOY_KNOWN_HOSTS` (output of `ssh-keyscan <VM address>`).
-7. In both repositories create the environments `qa` and `prod`; give `prod` a required reviewer.
-8. Make the packages `pipoker-controller` and `pipoker-web` public on GitHub (package settings), so the server pulls them without logging in.
-9. Deploy the current main once: run the **Deploy** workflow in both repositories with environment `qa`
-   and then `prod`, tag `main`.
+5. In both pipoker-app and pipoker-web on GitHub create the environment `prod`
+   (Settings → Environments) with yourself as a required reviewer.
 
-## Manual deployment
+## Releasing to PROD
+
+Check the change on QA, then run **Promote to PROD** in pipoker-app and/or pipoker-web (Actions tab)
+with the commit SHA. A rollback is the same workflow with an older SHA.
+
+## Checking an environment
 
 ```
-./deploy <qa|prod> <backend|web> <tag>
+node smoke-test.mjs https://pipoker-qa.duckdns.org
 ```
-The deployed tags are kept in `qa.env` and `prod.env`.
+creates a room and waits for a room event, which exercises the web proxy, the backend, MongoDB and RabbitMQ.

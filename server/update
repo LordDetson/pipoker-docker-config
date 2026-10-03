@@ -1,0 +1,20 @@
+#!/bin/bash
+# Pulls the current images of QA and PROD and restarts the services whose image changed.
+# Run by cron every few minutes (see README.md), or by hand after a release.
+set -euo pipefail
+
+cd "$(dirname "$0")"
+
+docker network inspect pipoker-edge > /dev/null 2>&1 || docker network create pipoker-edge > /dev/null
+
+for environment in qa prod; do
+	env_file="$environment.env"
+	if [ ! -f "$env_file" ]; then
+		continue
+	fi
+	compose="docker compose --env-file $env_file -f compose.yml"
+	$compose pull --quiet backend web
+	$compose up -d --quiet-pull
+done
+
+docker image prune -f > /dev/null
