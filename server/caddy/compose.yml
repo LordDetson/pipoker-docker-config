@@ -1,0 +1,29 @@
+# Reverse proxy for all environments. Gets HTTPS certificates from Let's Encrypt automatically.
+name: pipoker-caddy
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      PROD_DOMAIN: ${PROD_DOMAIN:?}
+      QA_DOMAIN: ${QA_DOMAIN:?}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    networks:
+      - edge
+
+volumes:
+  caddy-data:
+  caddy-config:
+
+networks:
+  edge:
+    name: pipoker-edge
+    external: true
