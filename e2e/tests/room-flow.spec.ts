@@ -141,19 +141,38 @@ test('a taken nickname and a missing room are explained to the person', async ({
   const roomId = await createRoom(alice, {deck});
 
   await openRoomLink(impostor, roomId);
-  await fillJoinForm(impostor);
-  await expect(impostor.page.getByRole('alert')).toBeVisible();
-  console.log(`Taken nickname message: ${await impostor.page.getByRole('alert').textContent()}`);
-  await expect(impostor.page.locator('app-table')).toHaveCount(0);
+  await impostor.page.locator('#nicknameInput').fill('alice');
+  await impostor.page.locator('#nicknameInput').blur();
+  await expect(impostor.page.locator('.invalid-feedback')).toHaveText('alice is already in the room');
+  await expect(impostor.page.getByRole('button', {name: 'Join Room'})).toBeDisabled();
   await expectSeats([alice], ['Alice']);
 
   await openRoomLink(lost, '00000000-0000-4000-8000-000000000000');
-  await fillJoinForm(lost);
-  await expect(lost.page.getByRole('alert')).toBeVisible();
-  console.log(`Missing room message: ${await lost.page.getByRole('alert').textContent()}`);
+  await lost.page.waitForTimeout(3_000);
+  console.log(`A missing room shows: ${(await lost.page.locator('app-root').innerText()).replace(/\n/g, ' | ')}`);
+  await expect.soft(lost.page.getByText(/not found/i), 'a missing room says so instead of showing the join form').toBeVisible();
 
   await leaveAll([impostor, lost]);
   await leaveAll([alice], roomId);
+});
+
+test('joining right after typing the nickname works', async ({browser}) => {
+  const alice = await person(browser, 'Alice');
+  const bob = await person(browser, 'Bob');
+  const carol = await person(browser, 'Carol');
+  const roomId = await createRoom(alice, {deck});
+
+  // Bob clicks Join at once, Carol presses Enter at once
+  await openRoomLink(bob, roomId);
+  await fillJoinForm(bob, {quick: true});
+  await openRoomLink(carol, roomId);
+  await carol.page.locator('#nicknameInput').fill('Carol');
+  await carol.page.locator('#nicknameInput').press('Enter');
+
+  await expect.soft(bob.page.locator('app-table'), 'Join clicked right after typing is not lost').toBeVisible({timeout: 10_000});
+  await expect.soft(carol.page.locator('app-table'), 'Enter pressed right after typing is not lost').toBeVisible({timeout: 10_000});
+
+  await leaveAll([alice, bob, carol], roomId);
 });
 
 test('everyone in a room votes at the same moment and every vote counts', async ({browser}) => {

@@ -53,11 +53,18 @@ export async function openRoomLink(someone: Person, roomId: string) {
   await someone.page.goto(`/room/${roomId}`);
 }
 
-export async function fillJoinForm(someone: Person, options: {watcher?: boolean; nickname?: string} = {}) {
+// A person types the nickname, moves on and clicks Join once the form has checked the nickname with the server.
+// quick: clicks right after typing, without waiting for that check.
+export async function fillJoinForm(someone: Person, options: {watcher?: boolean; nickname?: string; quick?: boolean} = {}) {
   const {page} = someone;
-  await page.locator('#nicknameInput').fill(options.nickname ?? someone.name);
+  const nickname = page.locator('#nicknameInput');
+  await nickname.fill(options.nickname ?? someone.name);
   if (options.watcher) {
     await page.locator('#watcherInput').check();
+  }
+  if (!options.quick) {
+    await nickname.blur();
+    await expect(nickname, 'the nickname check finishes').toHaveClass(/is-valid|is-invalid/);
   }
   await page.getByRole('button', {name: 'Join Room'}).click();
 }
