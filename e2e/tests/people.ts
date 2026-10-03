@@ -101,10 +101,13 @@ export async function vote(someone: Person, value: string) {
   await expect(deckCard(someone, value)).toHaveClass(/selected/);
 }
 
-// The server keeps the seat of someone whose connection is gone for 10 seconds, so they can come back after a refresh
+// The server keeps the seat of someone whose connection is lost for 10 seconds after it notices, so they can come back
 export const SEAT_KEPT_MS = 10_000;
-// Someone who closed the page disappears once the seat is no longer kept
+// Someone whose connection is lost disappears 16-19 seconds later: the server notices the missing heart-beats
+// after 6-9 seconds and then keeps the seat
 export const LEAVE_TIMEOUT = SEAT_KEPT_MS + 20_000;
+// Someone who closes the page disappears at once: the page tells the server. This allows for the trip there and back.
+export const PAGE_CLOSED_LEAVE_TIMEOUT = 5_000;
 
 export async function expectSeats(everyone: Person[], nicknames: string[], timeout?: number) {
   for (const someone of everyone) {
@@ -151,8 +154,7 @@ async function expectOnlyBackShown(someone: Person, nickname: string) {
   expect(shown.equals(withoutFront), `${someone.name} sees only the back of ${nickname}'s turned card`).toBe(true);
 }
 
-// Closing the tab the way a person does. Older versions of the page said goodbye in beforeunload;
-// now the server notices the closed connection and lets the seat go a few seconds later.
+// Closing the tab the way a person does. The page tells the server that it is closed, and the person leaves the table.
 export async function leave(someone: Person) {
   if (!someone.page.isClosed()) {
     await someone.page.close({runBeforeUnload: true});
@@ -197,25 +199,10 @@ function escape(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-// Remembers the page's WebSockets, so a test can cut them like a lost network does. Call before the page opens.
-export async function recordSockets(someone: Person) {
-  await someone.page.addInitScript(() => {
-    const NativeWebSocket = window.WebSocket;
-    const sockets: WebSocket[] = [];
-    (window as any).__pipokerSockets = sockets;
-    (window as any).WebSocket = class extends NativeWebSocket {
-      constructor(url: string | URL, protocols?: string | string[]) {
-        super(url, protocols);
-        sockets.push(this);
-      }
-    };
-  });
-}
-
-// Chromium keeps open WebSockets when offline is emulated, so they are closed the way a lost network does
+// Chromium keeps open WebSockets when offline is emulated, but nothing passes through them, like on a lost network.
+// The server and the page notice it from the missing heart-beats.
 export async function loseNetwork(someone: Person) {
   await someone.page.context().setOffline(true);
-  await someone.page.evaluate(() => ((window as any).__pipokerSockets ?? []).forEach((socket: WebSocket) => socket.close()));
 }
 
 export async function restoreNetwork(someone: Person) {
