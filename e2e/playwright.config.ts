@@ -10,7 +10,7 @@ export default defineConfig({
   fullyParallel: false,
   workers: 2,
   retries: 0,
-  reporter: [['list'], ['html', {open: 'never'}]],
+  reporter: [['line'], ['html', {open: 'never'}], ['json', {outputFile: 'results.json'}]],
   use: {
     baseURL: process.env.BASE_URL ?? 'https://pipoker.duckdns.org',
     trace: 'retain-on-failure',
