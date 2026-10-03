@@ -1,55 +1,103 @@
 name: Live E2E
 
-# Uses a running environment the way people do: several browsers in one room, phones and many teams at once.
-# Started by hand; every test removes the rooms it created.
+# Uses PiPoker the way people do: several browsers in one room, phones and many teams at once.
+# The prod job tests the running PROD from the internet; every test removes the rooms it created.
+# The local job builds pipoker-app and pipoker-web from the chosen branches, starts them like the server does
+# and runs the same tests there, so a fix can be checked before it is released.
 on:
   workflow_dispatch:
     inputs:
       url:
-        description: Environment to test
+        description: Environment for the prod job
         default: https://pipoker.duckdns.org
+      app_ref:
+        description: pipoker-app branch for the local job
+        default: main
+      web_ref:
+        description: pipoker-web branch for the local job
+        default: main
   push:
     branches: ['test/live-e2e-*']
 
 concurrency:
-  group: live-e2e
+  group: live-e2e-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
-  e2e:
+  prod:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    defaults:
-      run:
-        working-directory: e2e
     env:
       BASE_URL: ${{ inputs.url || 'https://pipoker.duckdns.org' }}
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
+      - uses: ./.github/actions/e2e
 
-      - name: Install Playwright
+  local:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      BASE_URL: http://prod.localhost
+      APP_REF: ${{ inputs.app_ref || 'fix/concurrent-room-changes' }}
+      WEB_REF: ${{ inputs.web_ref || 'main' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/checkout@v4
+        with:
+          repository: LordDetson/pipoker-app
+          ref: ${{ env.APP_REF }}
+          path: build/pipoker-app
+
+      - uses: actions/checkout@v4
+        with:
+          repository: LordDetson/pipoker-web
+          ref: ${{ env.WEB_REF }}
+          path: build/pipoker-web
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+          cache: maven
+          cache-dependency-path: build/pipoker-app/**/pom.xml
+
+      - name: Build pipoker-app ${{ env.APP_REF }} and pipoker-web ${{ env.WEB_REF }}
         run: |
-          npm install --no-audit --no-fund
-          npx playwright install --with-deps chromium firefox webkit
+          cd build/pipoker-app
+          ./mvnw -B -q package -DskipTests
+          find pipoker-controller/target -maxdepth 1 -name 'pipoker-controller-*.jar' ! -name '*-sources.jar' -exec cp {} pipoker-controller/target/app.jar \;
+          docker build -q -t ghcr.io/lorddetson/pipoker-controller:local pipoker-controller
+          cd ../pipoker-web
+          docker build -q -t ghcr.io/lorddetson/pipoker-web:local .
 
-      - name: Run the tests against ${{ env.BASE_URL }}
-        run: npx playwright test
+      - name: Start PROD locally
+        working-directory: server
+        run: |
+          sed 's/_TAG=.*/_TAG=local/' prod.env.example > prod.env
+          printf 'PROD_DOMAIN=http://prod.localhost\nQA_DOMAIN=http://qa.localhost\nQA_USERNAME=test\n' > caddy/.env
+          echo "QA_PASSWORD_HASH='$(docker run --rm caddy:2-alpine caddy hash-password --plaintext test)'" >> caddy/.env
+          echo "127.0.0.1 prod.localhost" | sudo tee -a /etc/hosts
+          docker network create pipoker-edge
+          docker compose --env-file prod.env -f compose.yml up -d --quiet-pull
+          docker compose -f caddy/compose.yml up -d --quiet-pull
+          for attempt in $(seq 1 60); do
+            curl -fsS "$BASE_URL/ws/info" > /dev/null && break
+            sleep 2
+          done
+          # The backend connects to RabbitMQ in the background, so the first attempts may come too early
+          for attempt in 1 2 3 4 5; do
+            ./check "$BASE_URL" && exit 0
+            sleep 5
+          done
+          exit 1
 
-      - name: Phone screenshots
-        if: always()
-        run: node summary.mjs screenshots
-
-      - name: Report
-        if: always()
-        run: node summary.mjs
-
-      - uses: actions/upload-artifact@v4
-        if: always()
+      - uses: ./.github/actions/e2e
         with:
-          name: playwright-report
-          path: e2e/playwright-report
-          retention-days: 14
+          report: playwright-report-local
+
+      - name: Show logs
+        if: failure()
+        working-directory: server
+        run: docker compose --env-file prod.env -f compose.yml logs --tail 200 backend

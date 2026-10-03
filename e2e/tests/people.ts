@@ -155,6 +155,9 @@ export async function leaveAll(everyone: Person[], roomId?: string) {
 
 export function noConsoleErrors(everyone: Person[]) {
   for (const someone of everyone) {
+    if (someone.consoleErrors.length > 0) {
+      console.log(`Browser console of ${someone.name}:\n  ${[...new Set(someone.consoleErrors)].map(error => error.slice(0, 300)).join('\n  ')}`);
+    }
     expect.soft(someone.consoleErrors, `${someone.name} has no errors in the browser console`).toEqual([]);
   }
 }

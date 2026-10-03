@@ -143,8 +143,10 @@ test('a taken nickname and a missing room are explained to the person', async ({
   await openRoomLink(impostor, roomId);
   await impostor.page.locator('#nicknameInput').fill('alice');
   await impostor.page.locator('#nicknameInput').blur();
-  await expect(impostor.page.locator('.invalid-feedback')).toHaveText('alice is already in the room');
+  await expect(impostor.page.locator('#nicknameInput')).toHaveClass(/is-invalid/);
   await expect(impostor.page.getByRole('button', {name: 'Join Room'})).toBeDisabled();
+  await expect.soft(impostor.page.getByText('alice is already in the room'), 'the form says why the nickname is not accepted')
+    .toBeVisible();
   await expectSeats([alice], ['Alice']);
 
   await openRoomLink(lost, '00000000-0000-4000-8000-000000000000');

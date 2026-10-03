@@ -1,0 +1,48 @@
+name: Run the live end-to-end tests
+description: Installs Playwright, runs e2e against BASE_URL and prints a short report
+
+inputs:
+  report:
+    description: Name of the uploaded HTML report
+    default: playwright-report
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 22
+
+    - name: Install Playwright
+      shell: bash
+      working-directory: e2e
+      run: |
+        npm install --no-audit --no-fund
+        npx playwright install --with-deps chromium firefox webkit
+
+    - name: Run the tests against ${{ env.BASE_URL }}
+      id: tests
+      shell: bash
+      working-directory: e2e
+      run: npx playwright test || echo "failed=true" >> "$GITHUB_OUTPUT"
+
+    - name: Phone screenshots
+      shell: bash
+      working-directory: e2e
+      run: node summary.mjs screenshots
+
+    - name: Report
+      shell: bash
+      working-directory: e2e
+      run: node summary.mjs
+
+    - uses: actions/upload-artifact@v4
+      with:
+        name: ${{ inputs.report }}
+        path: e2e/playwright-report
+        retention-days: 14
+
+    - name: Fail when a test failed
+      if: steps.tests.outputs.failed == 'true'
+      shell: bash
+      run: exit 1

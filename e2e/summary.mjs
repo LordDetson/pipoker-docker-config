@@ -28,7 +28,7 @@ for (const suite of report.suites) {
     console.log(`\n[${test.projectName}] ${result?.status?.toUpperCase()} ${title} (${result?.duration} ms)`);
     output.filter(line => !line.startsWith('SCREENSHOT')).forEach(line => console.log(`  | ${line}`));
     for (const error of result?.errors ?? []) {
-      console.log(`  ! ${strip(error.message ?? '').split('\n').filter(Boolean).slice(0, 6).join('\n    ')}`);
+      console.log(`  ! ${strip(error.message ?? '').split('\n').filter(Boolean).slice(0, 4).join('\n    ')}`);
       if (error.location) {
         console.log(`    at ${error.location.file.split('/').pop()}:${error.location.line}`);
       }
