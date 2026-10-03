@@ -1,0 +1,12 @@
+{
+  "name": "pipoker-live-e2e",
+  "private": true,
+  "description": "End-to-end tests that use a running PiPoker environment the way people do: several browsers in one room",
+  "scripts": {
+    "test": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.55.0",
+    "@types/node": "^22.0.0"
+  }
+}

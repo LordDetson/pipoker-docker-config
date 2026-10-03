@@ -69,6 +69,16 @@ node smoke-test.mjs https://pipoker-qa.duckdns.org
 ```
 creates a room and waits for a room event, which exercises the web proxy, the backend, MongoDB and RabbitMQ.
 
+## Live tests
+
+The **Live E2E** workflow (`.github/workflows/live-e2e.yml`, Actions tab → Run workflow) uses PiPoker the way
+people do, with Playwright: a team playing rounds in Chrome and Firefox, two people on phones (iPhone and Pixel),
+refreshing the page, losing the network for a moment and for longer, a killed browser, and 10 teams of 8
+voting at the same moment. The `prod` job runs the tests against PROD from the internet; every test removes
+the rooms it created. The `local` job builds pipoker-app and pipoker-web from the branches given as `app_ref`
+and `web_ref`, starts them like this server does and runs the same tests there, so a fix can be checked before
+it is released. The job log ends with a short report; the full Playwright report is attached to the run.
+
 ## Monitoring
 
 The **Monitor PROD** workflow (`.github/workflows/monitor.yml`) runs `./check` against PROD every 5 minutes
