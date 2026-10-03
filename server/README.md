@@ -38,7 +38,7 @@ The server pulls new versions itself, so GitHub never connects to it:
    git clone https://github.com/LordDetson/pipoker-docker-config.git
    cd pipoker-docker-config/server
    cp qa.env.example qa.env && cp prod.env.example prod.env   # set real passwords
-   cp caddy/.env.example caddy/.env                            # set the domains
+   cp caddy/.env.example caddy/.env                            # set the domains and the QA login
    ./update
    docker compose -f caddy/compose.yml up -d
    ```
@@ -50,6 +50,12 @@ The server pulls new versions itself, so GitHub never connects to it:
    ```
 5. In both pipoker-app and pipoker-web on GitHub create the environment `prod`
    (Settings → Environments) with yourself as a required reviewer.
+
+## QA access
+
+QA is only for checking changes before a release. From the home network it opens directly;
+from anywhere else Caddy asks for the login set by `QA_USERNAME` and `QA_PASSWORD_HASH` in `caddy/.env`.
+After changing them: `docker compose -f caddy/compose.yml up -d`.
 
 ## Releasing to PROD
 

@@ -21,7 +21,8 @@ jobs:
           for environment in qa prod; do
             sed 's/_TAG=.*/_TAG=main/' "$environment.env.example" > "$environment.env"
           done
-          printf 'PROD_DOMAIN=http://prod.localhost\nQA_DOMAIN=http://qa.localhost\n' > caddy/.env
+          printf 'PROD_DOMAIN=http://prod.localhost\nQA_DOMAIN=http://qa.localhost\nQA_USERNAME=test\n' > caddy/.env
+          echo "QA_PASSWORD_HASH='$(docker run --rm caddy:2-alpine caddy hash-password --plaintext test)'" >> caddy/.env
           echo "127.0.0.1 qa.localhost prod.localhost" | sudo tee -a /etc/hosts
 
       - name: Start the server
