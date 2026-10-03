@@ -16,8 +16,6 @@ on:
       web_ref:
         description: pipoker-web branch for the local job
         default: main
-  push:
-    branches: ['test/live-e2e-*']
 
 concurrency:
   group: live-e2e-${{ github.ref }}
@@ -39,8 +37,8 @@ jobs:
     timeout-minutes: 40
     env:
       BASE_URL: http://prod.localhost
-      APP_REF: ${{ inputs.app_ref || 'fix/presence-grace-period' }}
-      WEB_REF: ${{ inputs.web_ref || 'test/live-e2e-izpoqv' }}
+      APP_REF: ${{ inputs.app_ref }}
+      WEB_REF: ${{ inputs.web_ref }}
     steps:
       - uses: actions/checkout@v4
 
