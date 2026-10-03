@@ -147,6 +147,9 @@ export async function expectRevealed(everyone: Person[], votes: Record<string, s
 async function expectOnlyBackShown(someone: Person, nickname: string) {
   const card = seat(someone, nickname).locator('.card');
   const front = card.locator('.card-body:not(.card-body-back)');
+  // The back can show the value before the card starts to turn, so the screenshots wait until the turn is over
+  await expect(card, `${someone.name} sees ${nickname}'s card turned`).toHaveClass(/\brotateY180\b/);
+  await card.evaluate(element => Promise.all(element.getAnimations({subtree: true}).map(animation => animation.finished)));
   const shown = await card.screenshot({animations: 'disabled'});
   await front.evaluate(element => (element as HTMLElement).style.visibility = 'hidden');
   const withoutFront = await card.screenshot({animations: 'disabled'});
