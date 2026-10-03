@@ -1,0 +1,47 @@
+name: Live E2E
+
+# Uses a running environment the way people do: several browsers in one room, phones and many teams at once.
+# Started by hand; every test removes the rooms it created.
+on:
+  workflow_dispatch:
+    inputs:
+      url:
+        description: Environment to test
+        default: https://pipoker.duckdns.org
+  push:
+    branches: ['test/live-e2e-*']
+
+concurrency:
+  group: live-e2e
+  cancel-in-progress: false
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: e2e
+    env:
+      BASE_URL: ${{ inputs.url || 'https://pipoker.duckdns.org' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Playwright
+        run: |
+          npm install --no-audit --no-fund
+          npx playwright install --with-deps chromium firefox webkit
+
+      - name: Run the tests against ${{ env.BASE_URL }}
+        run: npx playwright test
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report
+          path: e2e/playwright-report
+          retention-days: 14
