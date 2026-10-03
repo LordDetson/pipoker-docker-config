@@ -43,7 +43,7 @@ if [ -n "$6" ]
 	then
 		server_ip=$6
 	else
-		echo "Docker Hub password required"
+		echo "Server IP required"
 		return
 fi
 
@@ -63,6 +63,22 @@ if [ -n "$8" ]
 		return
 fi
 
+if [ -n "$9" ]
+	then
+		mongodb_username=$9
+	else
+		echo "MongoDB application username required"
+		return
+fi
+
+if [ -n "${10}" ]
+	then
+		mongodb_password=${10}
+	else
+		echo "MongoDB application password required"
+		return
+fi
+
 docker network create pipokernet
 
 docker run -d \
@@ -78,5 +94,7 @@ docker run -d \
 	-e SERVER_IP=$server_ip \
 	-e BROKER_USERNAME=$broker_username \
 	-e BROKER_PASSWORD=$broker_password \
+	-e MONGODB_USERNAME=$mongodb_username \
+	-e MONGODB_PASSWORD=$mongodb_password \
 	--name jenkins \
 	pipoker/jenkins
