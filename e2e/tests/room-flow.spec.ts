@@ -9,6 +9,7 @@ import {
   fillJoinForm,
   joinRoom,
   leave,
+  LEAVE_TIMEOUT,
   leaveAll,
   mainButton,
   noConsoleErrors,
@@ -93,7 +94,7 @@ test('a team plays two rounds: voters, a watcher, revealing, a new round and som
   // Bob closes the tab
   await timed('leave and disappear from every screen', async () => {
     await leave(bob);
-    await expectSeats([alice, carol], ['Alice', 'Carol']);
+    await expectSeats([alice, carol], ['Alice', 'Carol'], LEAVE_TIMEOUT);
   });
 
   noConsoleErrors(everyone);

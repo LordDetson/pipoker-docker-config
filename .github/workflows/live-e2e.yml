@@ -39,8 +39,8 @@ jobs:
     timeout-minutes: 40
     env:
       BASE_URL: http://prod.localhost
-      APP_REF: ${{ inputs.app_ref || 'fix/concurrent-room-changes' }}
-      WEB_REF: ${{ inputs.web_ref || 'fix/join-while-checking' }}
+      APP_REF: ${{ inputs.app_ref || 'fix/presence-grace-period' }}
+      WEB_REF: ${{ inputs.web_ref || 'test/live-e2e-izpoqv' }}
     steps:
       - uses: actions/checkout@v4
 
