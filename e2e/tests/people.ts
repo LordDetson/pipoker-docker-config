@@ -9,6 +9,7 @@ export interface Person {
   name: string;
   page: Page;
   consoleErrors: string[];
+  frames: string[];
 }
 
 export async function person(browser: Browser, name: string, options: BrowserContextOptions = {}): Promise<Person> {
@@ -21,7 +22,14 @@ export async function person(browser: Browser, name: string, options: BrowserCon
     }
   });
   page.on('pageerror', error => consoleErrors.push(error.message));
-  return {name, page, consoleErrors};
+  // What went over the WebSocket, printed when a step fails
+  const frames: string[] = [];
+  page.on('websocket', socket => {
+    socket.on('framesent', frame => frames.push(`> ${String(frame.payload).slice(0, 300)}`));
+    socket.on('framereceived', frame => frames.push(`< ${String(frame.payload).slice(0, 300)}`));
+    socket.on('close', () => frames.push('-- closed'));
+  });
+  return {name, page, consoleErrors, frames};
 }
 
 export async function createRoom(someone: Person, options: {deck?: string; watcher?: boolean; roomName?: string} = {}): Promise<string> {
@@ -57,7 +65,18 @@ export async function fillJoinForm(someone: Person, options: {watcher?: boolean;
 export async function joinRoom(someone: Person, roomId: string, options: {watcher?: boolean} = {}) {
   await openRoomLink(someone, roomId);
   await fillJoinForm(someone, options);
-  await expect(someone.page.locator('app-table')).toBeVisible();
+  try {
+    await expect(someone.page.locator('app-table')).toBeVisible();
+  } catch (error) {
+    await explain(someone);
+    throw error;
+  }
+}
+
+export async function explain(someone: Person) {
+  const text = await someone.page.locator('body').innerText().catch(() => '');
+  console.log(`--- ${someone.name} at ${someone.page.url()}\n${text}\nconsole: ${someone.consoleErrors.join(' | ')}\n` +
+    `frames:\n${someone.frames.slice(-25).join('\n')}`);
 }
 
 export const seat = (someone: Person, nickname: string): Locator =>
