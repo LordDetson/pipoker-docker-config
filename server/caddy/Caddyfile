@@ -1,0 +1,17 @@
+(pipoker) {
+	# The web client connects to the backend on the same domain
+	handle /ws* {
+		reverse_proxy {args[0]}-backend:8080
+	}
+	handle {
+		reverse_proxy {args[0]}-web:80
+	}
+}
+
+{$PROD_DOMAIN} {
+	import pipoker prod
+}
+
+{$QA_DOMAIN} {
+	import pipoker qa
+}
