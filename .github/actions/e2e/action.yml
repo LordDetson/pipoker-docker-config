@@ -5,6 +5,9 @@ inputs:
   report:
     description: Name of the uploaded HTML report
     default: playwright-report
+  server-logs:
+    description: Command that prints the server's logs when a test failed
+    default: ''
 
 runs:
   using: composite
@@ -30,6 +33,11 @@ runs:
       shell: bash
       working-directory: e2e
       run: node summary.mjs screenshots
+
+    - name: Server logs
+      if: steps.tests.outputs.failed == 'true' && inputs.server-logs != ''
+      shell: bash
+      run: ${{ inputs.server-logs }}
 
     - name: Report
       shell: bash

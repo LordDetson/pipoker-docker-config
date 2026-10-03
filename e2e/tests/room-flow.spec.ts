@@ -102,18 +102,19 @@ test('a team plays two rounds: voters, a watcher, revealing, a new round and som
 
 test('someone who joins later sees the votes already made', async ({browser}) => {
   const alice = await person(browser, 'Alice');
-  const bob = await person(browser, 'Bob');
+  // A nickname like a work login, with a dot
+  const bob = await person(browser, 'b.smith');
   const roomId = await createRoom(alice, {deck});
   await vote(alice, '2');
 
   await joinRoom(bob, roomId);
-  await expectSeats([alice, bob], ['Alice', 'Bob']);
+  await expectSeats([alice, bob], ['Alice', 'b.smith']);
   await expectVoted([bob], 'Alice');
   await expect(mainButton(bob)).toHaveText('Reveal Cards');
 
   await vote(bob, '3');
   await mainButton(bob).click();
-  await expectRevealed([alice, bob], {Alice: '2', Bob: '3'});
+  await expectRevealed([alice, bob], {Alice: '2', 'b.smith': '3'});
 
   noConsoleErrors([alice, bob]);
   await leaveAll([alice, bob], roomId);

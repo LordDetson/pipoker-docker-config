@@ -87,7 +87,7 @@ export async function explain(someone: Person) {
 }
 
 export const seat = (someone: Person, nickname: string): Locator =>
-  someone.page.locator('app-table-card').filter({has: someone.page.locator('.card-title', {hasText: new RegExp(`^${nickname}$`)})}).first();
+  someone.page.locator('app-table-card').filter({has: someone.page.locator('.card-title', {hasText: new RegExp(`^${escape(nickname)}$`)})}).first();
 
 export const seats = (someone: Person): Locator => someone.page.locator('app-table-card');
 
