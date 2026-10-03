@@ -1,18 +1,18 @@
 import {defineConfig, devices} from '@playwright/test';
 
-// BASE_URL points at the environment under test, PROD by default.
+// BASE_URL points at the environment under test, QA by default. PROD is left to its users.
 // Every test cleans up after itself: when the last person leaves a room, the server deletes it.
 export default defineConfig({
   testDir: './tests',
   timeout: 120_000,
   expect: {timeout: 15_000},
-  // A real server is shared with real users, so keep the pressure moderate
+  // QA runs on the same server as PROD, so keep the pressure moderate
   fullyParallel: false,
   workers: 2,
   retries: 0,
   reporter: [['line'], ['html', {open: 'never'}], ['json', {outputFile: 'results.json'}]],
   use: {
-    baseURL: process.env.BASE_URL ?? 'https://pipoker.duckdns.org',
+    baseURL: process.env.BASE_URL ?? 'https://pipoker-qa.duckdns.org',
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure'

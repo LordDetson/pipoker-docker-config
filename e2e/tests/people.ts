@@ -1,7 +1,7 @@
 import {Browser, BrowserContextOptions, expect, Locator, Page, test} from '@playwright/test';
-import {roomExists} from './stomp';
+import {httpCredentials, roomExists} from './stomp';
 
-export const baseUrl = process.env.BASE_URL ?? 'https://pipoker.duckdns.org';
+export const baseUrl = process.env.BASE_URL ?? 'https://pipoker-qa.duckdns.org';
 export const testRoomName = () => `E2E ${new Date().toISOString().slice(11, 19)}`;
 
 // One person is one browser profile: their own storage, their own WebSocket connection.
@@ -13,7 +13,7 @@ export interface Person {
 }
 
 export async function person(browser: Browser, name: string, options: BrowserContextOptions = {}): Promise<Person> {
-  const context = await browser.newContext({baseURL: baseUrl, ...options});
+  const context = await browser.newContext({baseURL: baseUrl, httpCredentials, ...options});
   const page = await context.newPage();
   const consoleErrors: string[] = [];
   page.on('console', message => {
@@ -134,6 +134,21 @@ export async function expectRevealed(everyone: Person[], votes: Record<string, s
     }
     await expect(someone.page.locator('app-voting-result-chart canvas'), `${someone.name} sees the chart`).toBeVisible();
   }
+  for (const nickname of Object.keys(votes)) {
+    await expectOnlyBackShown(everyone[0], nickname);
+  }
+}
+
+// A turned card shows only its back. The front face is behind it, so hiding the front must not change a pixel;
+// a browser that draws it anyway shows the nickname mirrored over the card.
+async function expectOnlyBackShown(someone: Person, nickname: string) {
+  const card = seat(someone, nickname).locator('.card');
+  const front = card.locator('.card-body:not(.card-body-back)');
+  const shown = await card.screenshot({animations: 'disabled'});
+  await front.evaluate(element => (element as HTMLElement).style.visibility = 'hidden');
+  const withoutFront = await card.screenshot({animations: 'disabled'});
+  await front.evaluate(element => (element as HTMLElement).style.visibility = '');
+  expect(shown.equals(withoutFront), `${someone.name} sees only the back of ${nickname}'s turned card`).toBe(true);
 }
 
 // Closing the tab the way a person does. Older versions of the page said goodbye in beforeunload;
