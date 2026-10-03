@@ -12,6 +12,11 @@
 	import pipoker prod
 }
 
+# QA is for testing before a release: from outside the home network it asks for a login and password
 {$QA_DOMAIN} {
+	@outside not remote_ip private_ranges
+	basic_auth @outside {
+		{$QA_USERNAME} {$QA_PASSWORD_HASH}
+	}
 	import pipoker qa
 }
