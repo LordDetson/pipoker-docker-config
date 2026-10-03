@@ -110,4 +110,4 @@ jobs:
         with:
           report: playwright-report-local
           # Rooms that are gone are reported as errors too; those are expected
-          server-logs: docker compose --env-file server/prod.env -f server/compose.yml logs --no-log-prefix backend | grep -E 'WARN|ERROR|Exception' | grep -v 'is not found' | tail -60
+          server-logs: docker compose --env-file server/prod.env -f server/compose.yml logs --no-log-prefix backend | grep -E 'WARN|ERROR|Exception' | grep -v 'is not found' | tail -60 || true
