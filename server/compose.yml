@@ -4,11 +4,11 @@ name: pipoker-${PIPOKER_ENV:?}
 
 services:
   mongodb:
-    build: ../mongodb-image
-    image: pipoker/mongodb
+    image: mongo:7.0
     restart: unless-stopped
     volumes:
       - mongodb-data:/data/db
+      - ../mongodb-image/create-app-user.js:/docker-entrypoint-initdb.d/create-app-user.js:ro
     environment:
       MONGO_INITDB_ROOT_USERNAME: ${MONGODB_ROOT_USERNAME:?}
       MONGO_INITDB_ROOT_PASSWORD: ${MONGODB_ROOT_PASSWORD:?}
@@ -21,9 +21,10 @@ services:
       retries: 30
 
   rabbitmq:
-    build: ../rebbitmq-image
-    image: pipoker/rebbitmq-with-stomp
+    image: rabbitmq:3.12-management-alpine
     restart: unless-stopped
+    volumes:
+      - ./rabbitmq-plugins:/etc/rabbitmq/enabled_plugins:ro
     environment:
       RABBITMQ_DEFAULT_USER: ${BROKER_USERNAME:?}
       RABBITMQ_DEFAULT_PASS: ${BROKER_PASSWORD:?}

@@ -13,6 +13,7 @@ for environment in qa prod; do
 		continue
 	fi
 	compose="docker compose --env-file $env_file -f compose.yml"
+	# Only the application images: MongoDB and RabbitMQ are pulled on first start, which keeps Docker Hub requests low
 	$compose pull --quiet backend web
 	$compose up -d --quiet-pull
 done

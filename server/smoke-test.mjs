@@ -14,7 +14,8 @@ const timeout = setTimeout(() => fail('no answer in 30 seconds'), 30000);
 const ws = new WebSocket(wsUrl);
 let roomId;
 ws.onerror = () => fail(`cannot connect to ${wsUrl}`);
-ws.onopen = () => ws.send(frame('CONNECT', { 'accept-version': '1.2', host: baseUrl.hostname }));
+// No host header: the broker relay would pass it to RabbitMQ as a virtual host
+ws.onopen = () => ws.send(frame('CONNECT', { 'accept-version': '1.2' }));
 ws.onmessage = (event) => {
   const data = event.data.toString();
   const command = data.split('\n')[0];
