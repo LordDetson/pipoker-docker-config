@@ -68,3 +68,21 @@ with the commit SHA. A rollback is the same workflow with an older SHA.
 node smoke-test.mjs https://pipoker-qa.duckdns.org
 ```
 creates a room and waits for a room event, which exercises the web proxy, the backend, MongoDB and RabbitMQ.
+
+## Monitoring
+
+The **Monitor PROD** workflow (`.github/workflows/monitor.yml`) runs `./check` against PROD every 5 minutes
+from GitHub, outside the home network: it opens the web client, asks the backend for `/ws/info` and creates
+and deletes a room with `smoke-test.mjs`. So it also notices a switched-off server, a power cut,
+a home internet outage or an outdated DuckDNS address. GitHub may start scheduled runs a few minutes late.
+
+When PROD fails three checks in a row, the workflow opens an issue labelled `outage` (GitHub sends it by email)
+and sends a Telegram message; when PROD works again, it closes the issue and sends another message.
+
+Telegram setup:
+1. In Telegram, create a bot with [@BotFather](https://t.me/BotFather) (`/newbot`) and copy its token.
+2. Open the new bot and press **Start**, otherwise it cannot write to you.
+3. Find your chat id, for example with [@userinfobot](https://t.me/userinfobot).
+4. In this repository, add the secrets `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID`
+   (Settings → Secrets and variables → Actions → New repository secret).
+5. Run **Monitor PROD** by hand (Actions tab → Run workflow) with **Send a test message** ticked.

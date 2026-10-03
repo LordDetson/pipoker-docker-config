@@ -1,0 +1,18 @@
+#!/bin/bash
+# Checks what a user of an environment would see: the web client, the backend and a working room.
+# Prints nothing and exits 0 when everything works; otherwise prints the problem and exits 1.
+# Usage: ./check https://pipoker.duckdns.org
+set -uo pipefail
+
+url="${1:?usage: $0 <base url>}"
+cd "$(dirname "$0")"
+
+problem() {
+	echo "$1"
+	exit 1
+}
+
+page=$(curl -fsS --max-time 20 "$url/" 2>&1) || problem "Сайт не открывается: $page"
+grep -q '<app-root' <<< "$page" || problem "Сайт открывается, но вместо PiPoker показывает другую страницу"
+info=$(curl -fsS --max-time 20 "$url/ws/info" 2>&1) || problem "Бэкенд не отвечает: $info"
+smoke=$(node smoke-test.mjs "$url" 2>&1) || problem "Комнаты не работают: ${smoke##*FAILED: }"

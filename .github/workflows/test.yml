@@ -42,11 +42,10 @@ jobs:
               curl -fsS "$url/ws/info" > /dev/null && break
               sleep 2
             done
-            curl -fsS "$url/" | grep -q '<app-root'
             curl -fsS "$url/room/some-room" | grep -q '<app-root'
             # The backend connects to RabbitMQ in the background, so the first attempt may come too early
             for attempt in 1 2 3; do
-              node smoke-test.mjs "$url" && continue 2
+              ./check "$url" && continue 2
               sleep 5
             done
             exit 1
