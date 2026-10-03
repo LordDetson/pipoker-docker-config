@@ -1,4 +1,5 @@
 // Creates a room in a running environment and waits for a room event sent through the broker.
+// Then both participants leave, which deletes the room, so repeated checks don't pile up rooms in the database.
 // Usage: node smoke-test.mjs <base url>, e.g. node smoke-test.mjs https://pipoker-qa.duckdns.org
 const baseUrl = new URL(process.argv[2] ?? 'http://localhost');
 const wsUrl = `${baseUrl.protocol === 'https:' ? 'wss' : 'ws'}://${baseUrl.host}/ws/websocket`;
@@ -13,6 +14,8 @@ const timeout = setTimeout(() => fail('no answer in 30 seconds'), 30000);
 
 const ws = new WebSocket(wsUrl);
 let roomId;
+let events = 0;
+const leave = (nickname) => ws.send(frame('SEND', { destination: `/app/room/${roomId}/participants/remove` }, nickname));
 ws.onerror = () => fail(`cannot connect to ${wsUrl}`);
 // No host header: the broker relay would pass it to RabbitMQ as a virtual host
 ws.onopen = () => ws.send(frame('CONNECT', { 'accept-version': '1.2' }));
@@ -35,9 +38,16 @@ ws.onmessage = (event) => {
     setTimeout(() => ws.send(frame('SEND', { destination: `/app/room/${roomId}/participants/add`, 'content-type': 'application/json' },
       JSON.stringify({ nickname: 'Bob', watcher: false }))), 1000);
   } else if (command === 'MESSAGE') {
-    console.log(`Room event received: ${body}`);
-    clearTimeout(timeout);
-    ws.close();
+    events++;
+    if (events === 1) {
+      console.log(`Room event received: ${body}`);
+      leave('Bob');
+      leave('Alice');
+    } else if (events === 3) {
+      console.log('Room deleted');
+      clearTimeout(timeout);
+      ws.close();
+    }
   } else if (command === 'ERROR') {
     fail(data);
   }
