@@ -1,7 +1,7 @@
 import {Browser, BrowserContextOptions, expect, Locator, Page, test} from '@playwright/test';
-import {roomExists} from './stomp';
+import {httpCredentials, roomExists} from './stomp';
 
-export const baseUrl = process.env.BASE_URL ?? 'https://pipoker.duckdns.org';
+export const baseUrl = process.env.BASE_URL ?? 'https://pipoker-qa.duckdns.org';
 export const testRoomName = () => `E2E ${new Date().toISOString().slice(11, 19)}`;
 
 // One person is one browser profile: their own storage, their own WebSocket connection.
@@ -13,7 +13,7 @@ export interface Person {
 }
 
 export async function person(browser: Browser, name: string, options: BrowserContextOptions = {}): Promise<Person> {
-  const context = await browser.newContext({baseURL: baseUrl, ...options});
+  const context = await browser.newContext({baseURL: baseUrl, httpCredentials, ...options});
   const page = await context.newPage();
   const consoleErrors: string[] = [];
   page.on('console', message => {

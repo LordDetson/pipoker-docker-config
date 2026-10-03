@@ -1,4 +1,12 @@
 // A minimal STOMP client over the raw WebSocket endpoint of SockJS, enough to talk to PiPoker without a browser.
+
+// QA asks for a login from outside the home network; the tests take it from QA_USERNAME and QA_PASSWORD
+export const httpCredentials = process.env.QA_USERNAME && process.env.QA_PASSWORD
+  ? {username: process.env.QA_USERNAME, password: process.env.QA_PASSWORD}
+  : undefined;
+
+// Node's WebSocket (undici) takes request headers in its options, which the browser's WebSocket can't
+const NodeWebSocket = WebSocket as unknown as new (url: string, options: {headers: Record<string, string>}) => WebSocket;
 const frame = (command: string, headers: Record<string, string>, body = '') =>
   `${command}\n${Object.entries(headers).map(([key, value]) => `${key}:${value}`).join('\n')}\n\n${body}\0`;
 
@@ -18,7 +26,10 @@ export class Stomp {
 
   static connect(baseUrl: string): Promise<Stomp> {
     const url = new URL(baseUrl);
-    const ws = new WebSocket(`${url.protocol === 'https:' ? 'wss' : 'ws'}://${url.host}/ws/websocket`);
+    const headers: Record<string, string> = httpCredentials
+      ? {Authorization: `Basic ${Buffer.from(`${httpCredentials.username}:${httpCredentials.password}`).toString('base64')}`}
+      : {};
+    const ws = new NodeWebSocket(`${url.protocol === 'https:' ? 'wss' : 'ws'}://${url.host}/ws/websocket`, {headers});
     const client = new Stomp(ws);
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => reject(new Error('STOMP connection timed out')), 30_000);

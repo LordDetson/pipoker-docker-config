@@ -59,7 +59,7 @@ After changing them: `docker compose -f caddy/compose.yml up -d`.
 
 ## Releasing to PROD
 
-Check the change on QA, then run **Promote to PROD** in pipoker-app and/or pipoker-web (Actions tab)
+Check the change on QA (for example with **Live E2E** below), then run **Promote to PROD** in pipoker-app and/or pipoker-web (Actions tab)
 with the commit SHA. A rollback is the same workflow with an older SHA.
 
 ## Checking an environment
@@ -74,10 +74,12 @@ creates a room and waits for a room event, which exercises the web proxy, the ba
 The **Live E2E** workflow (`.github/workflows/live-e2e.yml`, Actions tab → Run workflow) uses PiPoker the way
 people do, with Playwright: a team playing rounds in Chrome and Firefox, two people on phones (iPhone and Pixel),
 refreshing the page, losing the network for a moment and for longer, a killed browser, and 10 teams of 8
-voting at the same moment. The `prod` job runs the tests against PROD from the internet; every test removes
-the rooms it created. The `local` job builds pipoker-app and pipoker-web from the branches given as `app_ref`
-and `web_ref`, starts them like this server does and runs the same tests there, so a fix can be checked before
-it is released. The job log ends with a short report; the full Playwright report is attached to the run.
+voting at the same moment. The `qa` job runs the tests against QA from the internet, so it logs in with
+the repository secrets `QA_USERNAME` and `QA_PASSWORD` (Settings → Secrets and variables → Actions); every test
+removes the rooms it created. PROD is left to its users: only the monitor below checks it. The `local` job builds
+pipoker-app and pipoker-web from the branches given as `app_ref` and `web_ref`, starts them like this server does
+and runs the same tests there, so a fix can be checked before it is merged. The job log ends with a short report;
+the full Playwright report is attached to the run.
 
 ## Monitoring
 
