@@ -100,7 +100,8 @@ jobs:
 
           if [ -n "$PROBLEM" ] && [ -z "$issue" ]; then
             address=$(dig +short "${PROD_URL#https://}" | tail -n 1)
-            gh issue create --repo "$GITHUB_REPOSITORY" --label outage \
+            # Assigning the owner makes GitHub notify them by email even without watching the repository
+            gh issue create --repo "$GITHUB_REPOSITORY" --label outage --assignee "$GITHUB_REPOSITORY_OWNER" \
               --title "PROD не работает" \
               --body "$(printf '%s\n\nАдрес %s сейчас указывает на %s.\nПроверка: %s\n\nЗадача закроется сама, когда PROD снова заработает.' \
                 "$PROBLEM" "$PROD_URL" "${address:-никуда (DNS не отвечает)}" "$RUN_URL")"
