@@ -86,3 +86,8 @@ Telegram setup:
 4. In this repository, add the secrets `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID`
    (Settings → Secrets and variables → Actions → New repository secret).
 5. Run **Monitor PROD** by hand (Actions tab → Run workflow) with **Send a test message** ticked.
+
+If GitHub stops running the workflow (it is late or skips runs when busy), nobody would be alerted.
+To catch that, create a free check on https://healthchecks.io with period 15 minutes and grace 30 minutes,
+connect Telegram or email to it there, and add its ping URL as the secret `HEALTHCHECKS_PING_URL`.
+Every run pings it, so Healthchecks.io alerts when the pings stop.

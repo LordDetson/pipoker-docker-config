@@ -33,6 +33,7 @@ env:
   GH_TOKEN: ${{ github.token }}
   TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
   TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+  HEALTHCHECKS_PING_URL: ${{ secrets.HEALTHCHECKS_PING_URL }}
   RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
 jobs:
@@ -123,3 +124,9 @@ jobs:
         # GitHub turns off scheduled workflows of a public repository after 60 days without commits
         continue-on-error: true
         run: gh api --method PUT "repos/$GITHUB_REPOSITORY/actions/workflows/monitor.yml/enable"
+
+      - name: Tell Healthchecks.io the monitor is alive
+        # If GitHub stops or delays the runs, Healthchecks.io notices the missing pings and alerts on its own
+        if: github.event_name != 'pull_request' && env.HEALTHCHECKS_PING_URL != ''
+        continue-on-error: true
+        run: curl -fsS --max-time 20 --retry 3 "$HEALTHCHECKS_PING_URL" > /dev/null
