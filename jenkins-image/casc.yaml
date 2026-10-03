@@ -33,6 +33,12 @@ credentials:
               username: ${BROKER_USERNAME}
               password: ${BROKER_PASSWORD}
               description: "Message broker login"
+          - usernamePassword:
+              scope: GLOBAL
+              id: MongoDbLogin
+              username: ${MONGODB_USERNAME}
+              password: ${MONGODB_PASSWORD}
+              description: "MongoDB application login"
 tool:
   maven:
     installations:
@@ -61,7 +67,7 @@ jobs:
   - script: >
       pipelineJob('pipoker-api') {
         properties {
-          githubProjectUrl("https://github.com/LordDetson/pipoker-api/")
+          githubProjectUrl("https://github.com/LordDetson/pipoker-app/")
         }
         triggers {
           githubPush()
@@ -71,7 +77,7 @@ jobs:
             scm {
               git {
                 remote {
-                  url('https://github.com/LordDetson/pipoker-api.git')
+                  url('https://github.com/LordDetson/pipoker-app.git')
                 }
                 branch('*/main')
               }
