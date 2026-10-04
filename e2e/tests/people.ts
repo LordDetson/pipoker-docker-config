@@ -106,7 +106,8 @@ export const SEAT_KEPT_MS = 10_000;
 // Someone whose connection is lost disappears 16-19 seconds later: the server notices the missing heart-beats
 // after 6-9 seconds and then keeps the seat
 export const LEAVE_TIMEOUT = SEAT_KEPT_MS + 20_000;
-// Someone who closes the page disappears at once: the page tells the server. This allows for the trip there and back.
+// Someone who closes the page disappears at once: the page tells the server. This allows for the trip there and back,
+// and stays below the time a lost connection keeps them at the table, so a page that didn't tell fails the check.
 export const PAGE_CLOSED_LEAVE_TIMEOUT = 5_000;
 
 // Someone closed the page, and everyone else sees them gone at once. Otherwise shows what that page sent last too.
