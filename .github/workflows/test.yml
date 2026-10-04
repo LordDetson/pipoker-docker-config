@@ -74,7 +74,7 @@ jobs:
         working-directory: server/caddy/config
         run: |
           # Replace the file the way git does, with a new file rather than in place
-          sed 's|^\timport pipoker qa|\thandle /caddyfile-check {\n\t\trespond "reloaded"\n\t}\n&|' Caddyfile > Caddyfile.new
+          sed 's|^\(\t*\)import pipoker qa|\1handle /caddyfile-check {\n\1\trespond "reloaded"\n\1}\n&|' Caddyfile > Caddyfile.new
           mv Caddyfile.new Caddyfile
           for attempt in $(seq 1 30); do
             [ "$(curl -s http://qa.localhost/caddyfile-check)" = reloaded ] && exit 0

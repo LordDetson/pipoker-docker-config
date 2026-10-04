@@ -20,15 +20,27 @@
 	import pipoker prod
 }
 
-# QA is for testing before a release: from outside the home network it asks for a login and password
+# QA is for testing before a release: from outside the home network it asks for a login and password.
+# Safari, on the iPhone too, leaves that login out of a WebSocket connection, so a room couldn't connect over one.
+# A browser that has logged in therefore also gets a cookie, which every browser sends with a WebSocket connection,
+# and the cookie lets it in without the login. Its value is the password hash: only a browser that knew
+# the password gets it, and a new password makes the old cookies useless.
 {$QA_DOMAIN} {
-	@outside not remote_ip private_ranges
-	basic_auth @outside {
-		{$QA_USERNAME} {$QA_PASSWORD_HASH}
+	@login {
+		not remote_ip private_ranges
+		not header Cookie *pipoker_qa_login={$QA_PASSWORD_HASH}*
 	}
-	# The activity dashboard of both environments (see ../../monitoring), behind the same login
-	handle /grafana* {
-		reverse_proxy pipoker-grafana:3000
+	# A route keeps this order: Caddy would otherwise set the header before checking the login,
+	# and the cookie would go out with the request for the login too
+	route {
+		basic_auth @login {
+			{$QA_USERNAME} {$QA_PASSWORD_HASH}
+		}
+		header @login Set-Cookie "pipoker_qa_login={$QA_PASSWORD_HASH}; Path=/; Max-Age=2592000; Secure; HttpOnly; SameSite=Lax"
+		# The activity dashboard of both environments (see ../../monitoring), behind the same login
+		handle /grafana* {
+			reverse_proxy pipoker-grafana:3000
+		}
+		import pipoker qa
 	}
-	import pipoker qa
 }
