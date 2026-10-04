@@ -52,7 +52,8 @@ test('someone closes the tab and leaves the table at once', async ({browser}) =>
   await leaveAll([alice, bob], roomId);
 });
 
-test('someone closes the browser and leaves the table at once', async ({browser}) => {
+test('someone closes the browser and leaves the table at once', async ({browser, browserName}) => {
+  test.skip(browserName === 'webkit', "Playwright closes a WebKit browser without letting its pages say goodbye, so it can't be checked there");
   const alice = await person(browser, 'Alice');
   const bob = await person(browser, 'Bob');
   const roomId = await createRoom(alice, {deck});
