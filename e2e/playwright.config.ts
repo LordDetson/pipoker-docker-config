@@ -1,5 +1,10 @@
 import {defineConfig, devices} from '@playwright/test';
 
+// Playwright's WebKit doesn't send QA's login with the WebSocket handshake, so behind the login the page falls back
+// to slower transports that a real browser doesn't use there, and logs the failed handshake as an error.
+// WebKit, the iPhone too, runs where nothing asks for a login.
+const loginRequired = Boolean(process.env.QA_USERNAME && process.env.QA_PASSWORD);
+
 // BASE_URL points at the environment under test, QA by default. PROD is left to its users.
 // Every test cleans up after itself: when the last person leaves a room, the server deletes it.
 export default defineConfig({
@@ -18,9 +23,14 @@ export default defineConfig({
     video: 'retain-on-failure'
   },
   projects: [
-    {name: 'chromium', use: {...devices['Desktop Chrome']}, testIgnore: /mobile|load/},
-    {name: 'firefox', use: {...devices['Desktop Firefox']}, testMatch: /room-flow/},
-    {name: 'mobile-safari', use: {...devices['iPhone 13']}, testMatch: /mobile/},
+    // The full Chromium rather than its headless shell, which closes a browser without letting its pages say goodbye
+    {name: 'chromium', use: {...devices['Desktop Chrome'], channel: 'chromium'}, testIgnore: /mobile|load/},
+    // Going offline in Firefox and WebKit is not like losing the network, so those tests run in Chromium only
+    {name: 'firefox', use: {...devices['Desktop Firefox']}, testMatch: /room-flow|resilience/, grepInvert: /@network/},
+    ...(loginRequired ? [] : [
+      {name: 'webkit', use: {...devices['Desktop Safari']}, testMatch: /resilience/, grepInvert: /@network/},
+      {name: 'mobile-safari', use: {...devices['iPhone 13']}, testMatch: /mobile/}
+    ]),
     {name: 'mobile-chrome', use: {...devices['Pixel 7']}, testMatch: /mobile/},
     {name: 'load', testMatch: /load/}
   ]

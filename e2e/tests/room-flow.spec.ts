@@ -3,13 +3,13 @@ import {
   baseUrl,
   createRoom,
   deckCard,
+  expectGoneAtOnce,
   expectRevealed,
   expectSeats,
   expectVoted,
   fillJoinForm,
   joinRoom,
   leave,
-  LEAVE_TIMEOUT,
   leaveAll,
   mainButton,
   noConsoleErrors,
@@ -94,7 +94,7 @@ test('a team plays two rounds: voters, a watcher, revealing, a new round and som
   // Bob closes the tab
   await timed('leave and disappear from every screen', async () => {
     await leave(bob);
-    await expectSeats([alice, carol], ['Alice', 'Carol'], LEAVE_TIMEOUT);
+    await expectGoneAtOnce([alice, carol], ['Alice', 'Carol'], bob);
   });
 
   noConsoleErrors(everyone);
