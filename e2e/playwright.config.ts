@@ -1,5 +1,9 @@
 import {defineConfig, devices} from '@playwright/test';
 
+// Playwright's WebKit doesn't send QA's login with the WebSocket handshake, so behind the login the page falls back
+// to slower transports that a real browser doesn't use there. WebKit runs where nothing asks for a login.
+const loginRequired = Boolean(process.env.QA_USERNAME && process.env.QA_PASSWORD);
+
 // BASE_URL points at the environment under test, QA by default. PROD is left to its users.
 // Every test cleans up after itself: when the last person leaves a room, the server deletes it.
 export default defineConfig({
@@ -22,7 +26,7 @@ export default defineConfig({
     {name: 'chromium', use: {...devices['Desktop Chrome'], channel: 'chromium'}, testIgnore: /mobile|load/},
     // Going offline in Firefox and WebKit is not like losing the network, so those tests run in Chromium only
     {name: 'firefox', use: {...devices['Desktop Firefox']}, testMatch: /room-flow|resilience/, grepInvert: /@network/},
-    {name: 'webkit', use: {...devices['Desktop Safari']}, testMatch: /resilience/, grepInvert: /@network/},
+    ...(loginRequired ? [] : [{name: 'webkit', use: {...devices['Desktop Safari']}, testMatch: /resilience/, grepInvert: /@network/}]),
     {name: 'mobile-safari', use: {...devices['iPhone 13']}, testMatch: /mobile/},
     {name: 'mobile-chrome', use: {...devices['Pixel 7']}, testMatch: /mobile/},
     {name: 'load', testMatch: /load/}
