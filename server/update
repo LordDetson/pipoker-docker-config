@@ -18,4 +18,9 @@ for environment in qa prod; do
 	$compose up -d --quiet-pull
 done
 
+# The activity dashboard, once it is configured
+if [ -f monitoring/.env ]; then
+	docker compose -f monitoring/compose.yml up -d --quiet-pull
+fi
+
 docker image prune -f > /dev/null

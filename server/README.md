@@ -5,9 +5,10 @@ behind Caddy with automatic HTTPS.
 
 ```
 Caddy (80, 443) ── PROD_DOMAIN ── /ws → prod-backend, rest → prod-web
-                └─ QA_DOMAIN   ── /ws → qa-backend,   rest → qa-web
-pipoker-prod: mongodb, rabbitmq, backend, web
-pipoker-qa:   mongodb, rabbitmq, backend, web
+                └─ QA_DOMAIN   ── /ws → qa-backend,   /grafana → grafana, rest → qa-web
+pipoker-prod:       mongodb, rabbitmq, backend, web
+pipoker-qa:         mongodb, rabbitmq, backend, web
+pipoker-monitoring: prometheus (scrapes both backends), grafana
 ```
 
 The server pulls new versions itself, so GitHub never connects to it:
@@ -39,6 +40,7 @@ The server pulls new versions itself, so GitHub never connects to it:
    cd pipoker-docker-config/server
    cp qa.env.example qa.env && cp prod.env.example prod.env   # set real passwords
    cp caddy/.env.example caddy/.env                            # set the domains and the QA login
+   cp monitoring/.env.example monitoring/.env                  # set the Grafana admin password
    ./update
    docker compose -f caddy/compose.yml up -d
    ```
@@ -56,6 +58,17 @@ The server pulls new versions itself, so GitHub never connects to it:
 QA is only for checking changes before a release. From the home network it opens directly;
 from anywhere else Caddy asks for the login set by `QA_USERNAME` and `QA_PASSWORD_HASH` in `caddy/.env`.
 After changing them: `docker compose -f caddy/compose.yml up -d`.
+
+## Activity dashboard
+
+`https://<QA_DOMAIN>/grafana/` shows what people do in PiPoker, for PROD and QA (the **Environment** switch at the top):
+rooms and people online, rooms created, people joined, votes and rounds, why people left, and the backend memory.
+It opens behind the QA login like QA itself; it can only be looked at, the dashboard comes from
+`monitoring/grafana/dashboards/activity.json`.
+
+Each backend serves its metrics on port 8081 (`/actuator/prometheus`), which only the server's internal network
+reaches. Prometheus in `monitoring/` collects them every 30 seconds and keeps two years. Only counts are stored:
+no nicknames, room names or room ids. `./update` starts the dashboard once `monitoring/.env` exists.
 
 ## Releasing to PROD
 
