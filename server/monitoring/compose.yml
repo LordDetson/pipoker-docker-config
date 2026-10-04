@@ -1,5 +1,5 @@
 # Activity dashboard for both environments: Prometheus collects the backends' metrics, Grafana shows them.
-# Grafana opens at https://<QA_DOMAIN>/grafana/ behind the QA login (see ../caddy/Caddyfile). Nothing here has a port
+# Grafana opens at https://<QA_DOMAIN>/grafana/ behind the QA login (see ../caddy/config/Caddyfile). Nothing here has a port
 # of its own on the server.
 name: pipoker-monitoring
 

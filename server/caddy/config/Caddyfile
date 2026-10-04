@@ -18,7 +18,7 @@
 	basic_auth @outside {
 		{$QA_USERNAME} {$QA_PASSWORD_HASH}
 	}
-	# The activity dashboard of both environments (see ../monitoring), behind the same login
+	# The activity dashboard of both environments (see ../../monitoring), behind the same login
 	handle /grafana* {
 		reverse_proxy pipoker-grafana:3000
 	}

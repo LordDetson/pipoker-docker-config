@@ -5,6 +5,8 @@ services:
   caddy:
     image: caddy:2-alpine
     restart: unless-stopped
+    # Reloads the configuration when the Caddyfile changes, for example after a git pull
+    command: caddy run --config /etc/caddy/Caddyfile --adapter caddyfile --watch
     ports:
       - "80:80"
       - "443:443"
@@ -15,7 +17,9 @@ services:
       QA_USERNAME: ${QA_USERNAME:?}
       QA_PASSWORD_HASH: ${QA_PASSWORD_HASH:?}
     volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # The folder rather than the file: git replaces a changed file with a new one, and a container that
+      # mounts the file alone keeps seeing the old one
+      - ./config:/etc/caddy:ro
       - caddy-data:/data
       - caddy-config:/config
     networks:
