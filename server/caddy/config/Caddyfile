@@ -1,3 +1,11 @@
+# HTTP/3 is off. It runs over UDP, which the router doesn't forward, and at home a QUIC connection could die
+# silently: the app froze and the browser showed ERR_QUIC_PROTOCOL_ERROR. HTTP/2 over TCP works on every path.
+{
+	servers {
+		protocols h1 h2
+	}
+}
+
 (pipoker) {
 	# The web client connects to the backend on the same domain
 	handle /ws* {
