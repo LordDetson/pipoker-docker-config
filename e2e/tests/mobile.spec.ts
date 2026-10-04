@@ -31,7 +31,7 @@ test('two people play a round on phones', async ({browser}, testInfo) => {
   await expectFitsTheScreen(alice.page, 'create room form');
   const roomId = await createRoom(alice);
   await expectFitsTheScreen(alice.page, 'room after creating it');
-  await expect(alice.page.getByRole('button', {name: 'Copy Invitation Link'})).toBeInViewport();
+  await expect(alice.page.getByTitle('Copy the invitation link')).toBeInViewport();
 
   await bob.page.goto(`/room/${roomId}`);
   await expectFitsTheScreen(bob.page, 'join form');

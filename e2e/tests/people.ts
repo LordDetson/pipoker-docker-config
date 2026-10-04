@@ -1,5 +1,5 @@
 import {Browser, BrowserContextOptions, expect, Locator, Page, test} from '@playwright/test';
-import {httpCredentials, roomExists} from './stomp';
+import {httpCredentials, loginHeaders, roomExists} from './stomp';
 
 export const baseUrl = process.env.BASE_URL ?? 'https://pipoker-qa.duckdns.org';
 export const testRoomName = () => `E2E ${new Date().toISOString().slice(11, 19)}`;
@@ -13,7 +13,10 @@ export interface Person {
 }
 
 export async function person(browser: Browser, name: string, options: BrowserContextOptions = {}): Promise<Person> {
-  const context = await browser.newContext({baseURL: baseUrl, httpCredentials, ...options});
+  // Playwright's WebKit answers QA's request for the login but leaves it out of the WebSocket handshake, so the page
+  // would fall back to slower transports there that Safari doesn't use at home. A header sent with every request,
+  // the handshake included, takes the login there.
+  const context = await browser.newContext({baseURL: baseUrl, httpCredentials, extraHTTPHeaders: loginHeaders, ...options});
   const page = await context.newPage();
   const consoleErrors: string[] = [];
   page.on('console', message => {
@@ -87,9 +90,10 @@ export async function explain(someone: Person) {
 }
 
 export const seat = (someone: Person, nickname: string): Locator =>
-  someone.page.locator('app-table-card').filter({has: someone.page.locator('.card-title', {hasText: new RegExp(`^${escape(nickname)}$`)})}).first();
+  someone.page.locator('app-table-card').filter({has: someone.page.locator('.nickname', {hasText: new RegExp(`^${escape(nickname)}$`)})}).first();
 
-export const seats = (someone: Person): Locator => someone.page.locator('app-table-card');
+// Everyone in the room: voters sit at the table, watchers are listed above it
+export const inRoom = (someone: Person): Locator => someone.page.locator('app-table-card .nickname, .watchers .watcher');
 
 export const deckCard = (someone: Person, value: string): Locator =>
   someone.page.locator('app-deck-card').filter({has: someone.page.locator('.card-text', {hasText: new RegExp(`^${escape(value)}$`)})});
@@ -115,13 +119,14 @@ export async function expectGoneAtOnce(everyone: Person[], nicknames: string[], 
   await expectSeats(everyone, nicknames, PAGE_CLOSED_LEAVE_TIMEOUT, [...everyone, gone]);
 }
 
-// Everyone sees exactly these people at the table. Otherwise shows the pages of everyone involved.
+// Everyone sees exactly these people in the room. Otherwise shows the pages of everyone involved.
 export async function expectSeats(everyone: Person[], nicknames: string[], timeout?: number, involved: Person[] = everyone) {
   try {
     for (const someone of everyone) {
-      await expect(seats(someone), `${someone.name} sees everyone at the table`).toHaveCount(nicknames.length, {timeout});
+      await expect(inRoom(someone), `${someone.name} sees everyone in the room`).toHaveCount(nicknames.length, {timeout});
       for (const nickname of nicknames) {
-        await expect(seat(someone, nickname), `${someone.name} sees ${nickname}`).toBeVisible();
+        await expect(inRoom(someone).filter({hasText: new RegExp(`^${escape(nickname)}$`)}), `${someone.name} sees ${nickname}`)
+          .toBeVisible();
       }
     }
   } catch (error) {
@@ -134,7 +139,7 @@ export async function expectSeats(everyone: Person[], nicknames: string[], timeo
 
 export async function expectVoted(everyone: Person[], nickname: string, voted = true) {
   for (const someone of everyone) {
-    const card = seat(someone, nickname).locator('.card');
+    const card = seat(someone, nickname).locator('.playing-card');
     if (voted) {
       await expect(card, `${someone.name} sees that ${nickname} voted`).toHaveClass(/\bvoted\b/);
     } else {
@@ -146,29 +151,29 @@ export async function expectVoted(everyone: Person[], nickname: string, voted = 
 export async function expectRevealed(everyone: Person[], votes: Record<string, string>) {
   for (const someone of everyone) {
     for (const [nickname, value] of Object.entries(votes)) {
-      await expect(seat(someone, nickname).locator('.card-body-back .card-text'), `${someone.name} sees ${nickname}'s card`)
+      await expect(seat(someone, nickname).locator('.card-face .card-value'), `${someone.name} sees ${nickname}'s card`)
         .toHaveText(value);
     }
     await expect(someone.page.locator('app-voting-result-chart canvas'), `${someone.name} sees the chart`).toBeVisible();
   }
   for (const nickname of Object.keys(votes)) {
-    await expectOnlyBackShown(everyone[0], nickname);
+    await expectOnlyFaceShown(everyone[0], nickname);
   }
 }
 
-// A turned card shows only its back. The front face is behind it, so hiding the front must not change a pixel;
-// a browser that draws it anyway shows the nickname mirrored over the card.
-async function expectOnlyBackShown(someone: Person, nickname: string) {
-  const card = seat(someone, nickname).locator('.card');
-  const front = card.locator('.card-body:not(.card-body-back)');
-  // The back can show the value before the card starts to turn, so the screenshots wait until the turn is over
-  await expect(card, `${someone.name} sees ${nickname}'s card turned`).toHaveClass(/\brotateY180\b/);
+// A turned card shows only its face with the value. The back is behind it, so hiding the back must not change a pixel;
+// a browser that draws it anyway shows the back's pattern mirrored over the value.
+async function expectOnlyFaceShown(someone: Person, nickname: string) {
+  const card = seat(someone, nickname).locator('.playing-card');
+  const back = card.locator('.card-back');
+  // The face can show the value before the card starts to turn, so the screenshots wait until the turn is over
+  await expect(card, `${someone.name} sees ${nickname}'s card turned`).toHaveClass(/\bturned\b/);
   await card.evaluate(element => Promise.all(element.getAnimations({subtree: true}).map(animation => animation.finished)));
   const shown = await card.screenshot({animations: 'disabled'});
-  await front.evaluate(element => (element as HTMLElement).style.visibility = 'hidden');
-  const withoutFront = await card.screenshot({animations: 'disabled'});
-  await front.evaluate(element => (element as HTMLElement).style.visibility = '');
-  expect(shown.equals(withoutFront), `${someone.name} sees only the back of ${nickname}'s turned card`).toBe(true);
+  await back.evaluate(element => (element as HTMLElement).style.visibility = 'hidden');
+  const withoutBack = await card.screenshot({animations: 'disabled'});
+  await back.evaluate(element => (element as HTMLElement).style.visibility = '');
+  expect(shown.equals(withoutBack), `${someone.name} sees only the face of ${nickname}'s turned card`).toBe(true);
 }
 
 // Closing the tab the way a person does. The page tells the server that it is closed, and the person leaves the table.
