@@ -12,7 +12,6 @@ import {
   leaveAll,
   loseNetwork,
   mainButton,
-  PAGE_CLOSED_LEAVE_TIMEOUT,
   person,
   restoreNetwork,
   SEAT_KEPT_MS,
@@ -21,9 +20,9 @@ import {
 } from './people';
 import {fetchRoom, roomExists} from './stomp';
 
-// What happens when a page is closed or a connection is gone. Closing or refreshing the page takes the person away
-// from the table at once. A connection lost for a moment keeps them at the table; for longer it counts as leaving.
-// Either way, coming back offers the join form with the same nickname.
+// What happens when a page is closed or a connection is gone. Closing the page takes the person away from the table
+// at once, and a refreshed page brings them back with their vote. A connection lost for a moment keeps them at
+// the table; for longer it counts as leaving, and coming back offers the join form with the same nickname.
 const deck = '1; 2; 3; 5; 8';
 // Long enough to be sure nobody leaves who should not
 const LONGER_THAN_SEAT_KEPT_MS = SEAT_KEPT_MS + 3_000;
@@ -69,7 +68,7 @@ test('someone closes the browser and leaves the table at once', async ({browser,
   await leaveAll([alice], roomId);
 });
 
-test('someone refreshes the page, leaves the table and joins again with one click', async ({browser}) => {
+test('someone refreshes the page and stays at the table with the vote', async ({browser}) => {
   const alice = await person(browser, 'Alice');
   const bob = await person(browser, 'Bob');
   const roomId = await createRoom(alice, {deck});
@@ -77,30 +76,35 @@ test('someone refreshes the page, leaves the table and joins again with one clic
   await vote(bob, '3');
   await expectVoted([alice], 'Bob');
 
+  const refreshed = Date.now();
   await bob.page.reload();
 
-  await expectGoneAtOnce([alice], ['Alice'], bob);
-  const nickname = bob.page.locator('#nicknameInput');
-  await expect(nickname, 'Bob sees the join form').toBeVisible();
-  await expect(nickname, 'with his nickname').toHaveValue('Bob');
-  await bob.page.getByRole('button', {name: 'Join Room'}).click();
+  await expect(deckCard(bob, '3'), 'Bob is back at the table with his vote').toHaveClass(/selected/);
+  await expect(bob.page.locator('#nicknameInput'), 'without the join form').toBeHidden();
   await expectSeats([alice, bob], ['Alice', 'Bob']);
-  await expectVoted([alice, bob], 'Bob', false);
+  await expectVoted([alice, bob], 'Bob');
+  console.log(`Alice saw Bob back at the table with his vote ${secondsSince(refreshed)} s after he refreshed the page`);
+  await bob.page.waitForTimeout(LONGER_THAN_SEAT_KEPT_MS);
+  await expectSeats([alice, bob], ['Alice', 'Bob']);
+  const room = await fetchRoom(baseUrl, roomId);
+  expect(room.participants.map(p => p.nickname)).toEqual(['Alice', 'Bob']);
+  expect(room.votes, 'the server keeps the vote').toEqual([{nickname: 'Bob', card: '3'}]);
 
   await leaveAll([alice, bob], roomId);
 });
 
-test('the only person in a room refreshes the page, and the room is gone', async ({browser}) => {
+test('the only person in a room refreshes the page and keeps the room', async ({browser}) => {
   const alice = await person(browser, 'Alice');
   const roomId = await createRoom(alice, {deck});
 
   await alice.page.reload();
 
-  await expect.poll(() => roomExists(baseUrl, roomId), {message: 'the room is deleted', timeout: PAGE_CLOSED_LEAVE_TIMEOUT})
-    .toBe(false);
-  await expect.soft(alice.page.getByText(/not found/i), 'the page says the room is not found').toBeVisible();
+  await expectSeats([alice], ['Alice']);
+  await alice.page.waitForTimeout(LONGER_THAN_SEAT_KEPT_MS);
+  await expectSeats([alice], ['Alice']);
+  expect(await roomExists(baseUrl, roomId), 'the room is still there').toBe(true);
 
-  await leaveAll([alice]);
+  await leaveAll([alice], roomId);
 });
 
 test('someone loses the network for a moment and stays at the table', {tag: '@network'}, async ({browser}) => {
