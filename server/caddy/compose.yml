@@ -10,7 +10,6 @@ services:
     ports:
       - "80:80"
       - "443:443"
-      - "443:443/udp"
     environment:
       PROD_DOMAIN: ${PROD_DOMAIN:?}
       QA_DOMAIN: ${QA_DOMAIN:?}
