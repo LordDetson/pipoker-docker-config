@@ -1,0 +1,14 @@
+# Collects the activity metrics of both backends (see RoomActivity in pipoker-app) over the shared network.
+global:
+  scrape_interval: 30s
+
+scrape_configs:
+  - job_name: pipoker
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: [prod-backend:8081]
+        labels:
+          env: prod
+      - targets: [qa-backend:8081]
+        labels:
+          env: qa

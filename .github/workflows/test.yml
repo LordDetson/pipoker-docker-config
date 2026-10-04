@@ -23,6 +23,7 @@ jobs:
           done
           printf 'PROD_DOMAIN=http://prod.localhost\nQA_DOMAIN=http://qa.localhost\nQA_USERNAME=test\n' > caddy/.env
           echo "QA_PASSWORD_HASH='$(docker run --rm caddy:2-alpine caddy hash-password --plaintext test)'" >> caddy/.env
+          printf 'GRAFANA_ROOT_URL=http://qa.localhost/grafana/\nGRAFANA_ADMIN_PASSWORD=%s\n' "$(openssl rand -hex 16)" > monitoring/.env
           echo "127.0.0.1 qa.localhost prod.localhost" | sudo tee -a /etc/hosts
 
       - name: Start the server
@@ -51,6 +52,24 @@ jobs:
             exit 1
           done
 
+      - name: Check the activity dashboard
+        working-directory: server
+        run: |
+          grafana=http://qa.localhost/grafana
+          for attempt in $(seq 1 30); do
+            curl -fsS "$grafana/api/health" > /dev/null && break
+            sleep 2
+          done
+          curl -fsS "$grafana/api/search?query=PiPoker" | grep -q '"uid":"pipoker-activity"'
+          # Prometheus collects the metrics of both backends: it scrapes every 30 seconds
+          query="$grafana/api/datasources/proxy/uid/prometheus/api/v1/query?query=count(pipoker_rooms)"
+          for attempt in $(seq 1 30); do
+            curl -fsS "$query" | grep -q '"value":\[[0-9.]*,"2"\]' && exit 0
+            sleep 5
+          done
+          curl -sS "$query"
+          exit 1
+
       - name: Show logs
         if: failure()
         working-directory: server
@@ -59,3 +78,4 @@ jobs:
             docker compose --env-file "$environment.env" -f compose.yml logs --tail 100
           done
           docker compose -f caddy/compose.yml logs --tail 100
+          docker compose -f monitoring/compose.yml logs --tail 100

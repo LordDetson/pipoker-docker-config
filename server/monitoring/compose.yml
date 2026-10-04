@@ -1,0 +1,61 @@
+# Activity dashboard for both environments: Prometheus collects the backends' metrics, Grafana shows them.
+# Grafana opens at https://<QA_DOMAIN>/grafana/ behind the QA login (see ../caddy/Caddyfile). Nothing here has a port
+# of its own on the server.
+name: pipoker-monitoring
+
+services:
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      # A few dozen series take a few megabytes a year, so two years of history cost nothing
+      - --storage.tsdb.retention.time=2y
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    mem_limit: 256m
+    networks:
+      - edge
+
+  grafana:
+    image: grafana/grafana-oss:11.3.0
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+    environment:
+      GF_SERVER_ROOT_URL: ${GRAFANA_ROOT_URL:?}
+      GF_SERVER_SERVE_FROM_SUB_PATH: "true"
+      # Caddy already asks for the QA login from outside, so whoever gets here may look at the dashboard,
+      # and nobody can sign in to change it: it comes from the files in ./grafana
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_AUTH_DISABLE_LOGIN_FORM: "true"
+      GF_AUTH_BASIC_ENABLED: "false"
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/activity.json
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_ANALYTICS_CHECK_FOR_PLUGIN_UPDATES: "false"
+      GF_NEWS_NEWS_FEED_ENABLED: "false"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    mem_limit: 256m
+    networks:
+      edge:
+        aliases:
+          - pipoker-grafana
+
+volumes:
+  prometheus-data:
+  grafana-data:
+
+networks:
+  # Shared with Caddy and the backends of both environments
+  edge:
+    name: pipoker-edge
+    external: true
