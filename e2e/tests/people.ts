@@ -109,22 +109,25 @@ export const LEAVE_TIMEOUT = SEAT_KEPT_MS + 20_000;
 // Someone who closes the page disappears at once: the page tells the server. This allows for the trip there and back.
 export const PAGE_CLOSED_LEAVE_TIMEOUT = 5_000;
 
-// Someone closed the page, and everyone else sees them gone at once. Otherwise shows what that page sent last.
+// Someone closed the page, and everyone else sees them gone at once. Otherwise shows what that page sent last too.
 export async function expectGoneAtOnce(everyone: Person[], nicknames: string[], gone: Person) {
-  try {
-    await expectSeats(everyone, nicknames, PAGE_CLOSED_LEAVE_TIMEOUT);
-  } catch (error) {
-    console.log(`${gone.name}'s page sent and received last:\n${gone.frames.slice(-8).join('\n')}`);
-    throw error;
-  }
+  await expectSeats(everyone, nicknames, PAGE_CLOSED_LEAVE_TIMEOUT, [...everyone, gone]);
 }
 
-export async function expectSeats(everyone: Person[], nicknames: string[], timeout?: number) {
-  for (const someone of everyone) {
-    await expect(seats(someone), `${someone.name} sees everyone at the table`).toHaveCount(nicknames.length, {timeout});
-    for (const nickname of nicknames) {
-      await expect(seat(someone, nickname), `${someone.name} sees ${nickname}`).toBeVisible();
+// Everyone sees exactly these people at the table. Otherwise shows the pages of everyone involved.
+export async function expectSeats(everyone: Person[], nicknames: string[], timeout?: number, involved: Person[] = everyone) {
+  try {
+    for (const someone of everyone) {
+      await expect(seats(someone), `${someone.name} sees everyone at the table`).toHaveCount(nicknames.length, {timeout});
+      for (const nickname of nicknames) {
+        await expect(seat(someone, nickname), `${someone.name} sees ${nickname}`).toBeVisible();
+      }
     }
+  } catch (error) {
+    for (const someone of involved) {
+      await explain(someone);
+    }
+    throw error;
   }
 }
 
