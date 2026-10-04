@@ -31,10 +31,10 @@ test('a team plays two rounds: voters, a watcher, revealing, a new round and som
   const everyone = [alice, bob, carol];
 
   const roomId = await timed('create a room', () => createRoom(alice, {deck}));
-  await expect(alice.page.locator('header strong.fs-3')).toHaveText(/^E2E /);
+  await expect(alice.page.locator('header .room-name')).toHaveText(/^E2E /);
 
   if (browserName === 'chromium') {
-    await alice.page.getByRole('button', {name: 'Copy Invitation Link'}).click();
+    await alice.page.getByTitle('Copy the invitation link').click();
     const link = await alice.page.evaluate(() => navigator.clipboard.readText());
     expect(link).toBe(`${baseUrl}/room/${roomId}`);
   }
@@ -43,9 +43,11 @@ test('a team plays two rounds: voters, a watcher, revealing, a new round and som
   await timed('join by link as a watcher', () => joinRoom(carol, roomId, {watcher: true}));
   await expectSeats(everyone, ['Alice', 'Bob', 'Carol']);
 
-  // The watcher has no deck and is shown with an eye
+  // The watcher has no deck and is listed beside the eye, not at the table
   await expect(carol.page.locator('app-deck-card')).toHaveCount(0);
-  await expect(seat(alice, 'Carol').locator('.eye-icon')).toBeVisible();
+  await expect(alice.page.locator('.watchers .eye-icon')).toBeVisible();
+  await expect(alice.page.locator('.watchers .watcher')).toHaveText(['Carol']);
+  await expect(alice.page.locator('app-table-card')).toHaveCount(2);
   await expect(alice.page.locator('app-deck-card')).toHaveCount(7);
   await expect(mainButton(alice)).toHaveText('Voting...');
   await expect(mainButton(alice)).toBeDisabled();
@@ -57,9 +59,8 @@ test('a team plays two rounds: voters, a watcher, revealing, a new round and som
   });
   await vote(bob, '8');
   await expectVoted(everyone, 'Bob');
-  await expectVoted(everyone, 'Carol', false);
   // Cards stay hidden until someone reveals them
-  await expect(seat(carol, 'Alice').locator('.card-body-back .card-text')).toHaveCount(0);
+  await expect(seat(carol, 'Alice').locator('.card-value')).toHaveCount(0);
 
   await expect(mainButton(carol)).toHaveText('Reveal Cards');
   await timed('reveal the cards', async () => {
@@ -154,7 +155,7 @@ test('a taken nickname and a missing room are explained to the person', async ({
   await openRoomLink(lost, '00000000-0000-4000-8000-000000000000');
   await lost.page.waitForTimeout(3_000);
   console.log(`A missing room shows: ${(await lost.page.locator('app-root').innerText()).replace(/\n/g, ' | ')}`);
-  await expect.soft(lost.page.getByText(/not found/i), 'a missing room says so instead of showing the join form').toBeVisible();
+  await expect.soft(lost.page.getByText('This invitation is no longer valid'), 'a missing room says so instead of showing the join form').toBeVisible();
 
   await leaveAll([impostor, lost]);
   await leaveAll([alice], roomId);

@@ -7,6 +7,7 @@ import {
   expectRevealed,
   expectSeats,
   expectVoted,
+  inRoom,
   joinRoom,
   LEAVE_TIMEOUT,
   leaveAll,
@@ -15,7 +16,6 @@ import {
   person,
   restoreNetwork,
   SEAT_KEPT_MS,
-  seats,
   vote
 } from './people';
 import {fetchRoom, roomExists} from './stomp';
@@ -154,7 +154,7 @@ test('someone loses the network for longer, leaves the table and joins again wit
   await loseNetwork(bob);
   const lost = Date.now();
   await alice.page.waitForTimeout(SEAT_KEPT_MS);
-  expect(await seats(alice).count(), 'Alice still sees Bob 10 s after his network was gone').toBe(2);
+  expect(await inRoom(alice).count(), 'Alice still sees Bob 10 s after his network was gone').toBe(2);
   await expectSeats([alice], ['Alice'], LEAVE_TIMEOUT - SEAT_KEPT_MS);
   console.log(`Alice saw Bob leave ${secondsSince(lost)} s after his network was gone`);
   await restoreNetwork(bob);
@@ -190,7 +190,7 @@ test('someone whose browser crashes leaves the table once the seat is no longer 
     await bobsBrowserServer.kill();
 
     await alice.page.waitForTimeout(SEAT_KEPT_MS / 2);
-    expect(await seats(alice).count(), 'Alice still sees Bob 5 s after his browser crashed').toBe(2);
+    expect(await inRoom(alice).count(), 'Alice still sees Bob 5 s after his browser crashed').toBe(2);
     await expectSeats([alice], ['Alice'], LEAVE_TIMEOUT);
     console.log(`Alice saw Bob leave ${secondsSince(killed)} s after his browser crashed`);
     const room = await fetchRoom(baseUrl, roomId);
