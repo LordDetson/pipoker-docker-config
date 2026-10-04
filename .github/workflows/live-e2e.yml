@@ -69,10 +69,15 @@ jobs:
           ref: ${{ env.WEB_REF }}
           path: build/pipoker-web
 
+      # The ref being built decides its Java version, older refs still need the one they were written for
+      - name: Read the Java version of pipoker-app ${{ env.APP_REF }}
+        id: java
+        run: echo "version=$(sed -n 's:.*<java.version>\(.*\)</java.version>.*:\1:p' build/pipoker-app/pom.xml)" >> "$GITHUB_OUTPUT"
+
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 17
+          java-version: ${{ steps.java.outputs.version }}
           cache: maven
           cache-dependency-path: build/pipoker-app/**/pom.xml
 
