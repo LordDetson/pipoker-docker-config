@@ -3,6 +3,7 @@ import {
   baseUrl,
   createRoom,
   deckCard,
+  expectGoneAtOnce,
   expectRevealed,
   expectSeats,
   expectVoted,
@@ -42,7 +43,7 @@ test('someone closes the tab and leaves the table at once', async ({browser}) =>
   const closed = Date.now();
   await bob.page.close();
 
-  await expectSeats([alice], ['Alice'], PAGE_CLOSED_LEAVE_TIMEOUT);
+  await expectGoneAtOnce([alice], ['Alice'], bob);
   console.log(`Alice saw Bob leave ${secondsSince(closed)} s after he closed the tab`);
   const room = await fetchRoom(baseUrl, roomId);
   expect(room.participants.map(p => p.nickname)).toEqual(['Alice']);
@@ -61,7 +62,7 @@ test('someone closes the browser and leaves the table at once', async ({browser}
   const closed = Date.now();
   await bob.page.context().close();
 
-  await expectSeats([alice], ['Alice'], PAGE_CLOSED_LEAVE_TIMEOUT);
+  await expectGoneAtOnce([alice], ['Alice'], bob);
   console.log(`Alice saw Bob leave ${secondsSince(closed)} s after he closed the browser`);
 
   await leaveAll([alice], roomId);
@@ -77,7 +78,7 @@ test('someone refreshes the page, leaves the table and joins again with one clic
 
   await bob.page.reload();
 
-  await expectSeats([alice], ['Alice'], PAGE_CLOSED_LEAVE_TIMEOUT);
+  await expectGoneAtOnce([alice], ['Alice'], bob);
   const nickname = bob.page.locator('#nicknameInput');
   await expect(nickname, 'Bob sees the join form').toBeVisible();
   await expect(nickname, 'with his nickname').toHaveValue('Bob');
@@ -101,7 +102,7 @@ test('the only person in a room refreshes the page, and the room is gone', async
   await leaveAll([alice]);
 });
 
-test('someone loses the network for a moment and stays at the table', async ({browser}) => {
+test('someone loses the network for a moment and stays at the table', {tag: '@network'}, async ({browser}) => {
   const alice = await person(browser, 'Alice');
   const bob = await person(browser, 'Bob');
   const carol = await person(browser, 'Carol');
@@ -138,7 +139,7 @@ test('someone loses the network for a moment and stays at the table', async ({br
   await leaveAll([alice, bob, carol], roomId);
 });
 
-test('someone loses the network for longer, leaves the table and joins again with one click', async ({browser}) => {
+test('someone loses the network for longer, leaves the table and joins again with one click', {tag: '@network'}, async ({browser}) => {
   const alice = await person(browser, 'Alice');
   const bob = await person(browser, 'Bob');
   const roomId = await createRoom(alice, {deck});

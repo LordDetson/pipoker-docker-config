@@ -92,8 +92,17 @@ jobs:
           printf 'PROD_DOMAIN=http://prod.localhost\nQA_DOMAIN=http://qa.localhost\nQA_USERNAME=test\n' > caddy/.env
           echo "QA_PASSWORD_HASH='$(docker run --rm caddy:2-alpine caddy hash-password --plaintext test)'" >> caddy/.env
           echo "127.0.0.1 prod.localhost" | sudo tee -a /etc/hosts
+          # The backend also logs how each connection closed and which messages arrived, for the presence checks
+          cat > compose.local.yml <<'EOF'
+          services:
+            backend:
+              environment:
+                SPRING_APPLICATION_JSON: >-
+                  {"logging.level.org.springframework.web.socket.handler.LoggingWebSocketHandlerDecorator": "DEBUG",
+                  "logging.level.org.springframework.web.socket.messaging.WebSocketAnnotationMethodMessageHandler": "DEBUG"}
+          EOF
           docker network create pipoker-edge
-          docker compose --env-file prod.env -f compose.yml up -d --quiet-pull
+          docker compose --env-file prod.env -f compose.yml -f compose.local.yml up -d --quiet-pull
           docker compose -f caddy/compose.yml up -d --quiet-pull
           for attempt in $(seq 1 60); do
             curl -fsS "$BASE_URL/ws/info" > /dev/null && break
@@ -110,4 +119,4 @@ jobs:
         with:
           report: playwright-report-local
           # Rooms that are gone are reported as errors too; those are expected
-          server-logs: docker compose --env-file server/prod.env -f server/compose.yml logs --no-log-prefix backend | grep -E 'WARN|ERROR|Exception' | grep -v 'is not found' | tail -60 || true
+          server-logs: docker compose --env-file server/prod.env -f server/compose.yml logs --no-log-prefix backend | grep -E 'WARN|ERROR|Exception|closed with|presence/page-closed|left the room' | grep -v 'is not found' | tail -400 || true
