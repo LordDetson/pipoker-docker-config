@@ -1,5 +1,5 @@
 import {Browser, BrowserContextOptions, expect, Locator, Page, test} from '@playwright/test';
-import {httpCredentials, loginHeaders, roomExists} from './stomp';
+import {httpCredentials, roomExists} from './stomp';
 
 export const baseUrl = process.env.BASE_URL ?? 'https://pipoker-qa.duckdns.org';
 export const testRoomName = () => `E2E ${new Date().toISOString().slice(11, 19)}`;
@@ -13,10 +13,7 @@ export interface Person {
 }
 
 export async function person(browser: Browser, name: string, options: BrowserContextOptions = {}): Promise<Person> {
-  // Playwright's WebKit answers QA's request for the login but leaves it out of the WebSocket handshake, so the page
-  // would fall back to slower transports there that Safari doesn't use at home. A header sent with every request,
-  // the handshake included, takes the login there.
-  const context = await browser.newContext({baseURL: baseUrl, httpCredentials, extraHTTPHeaders: loginHeaders, ...options});
+  const context = await browser.newContext({baseURL: baseUrl, httpCredentials, ...options});
   const page = await context.newPage();
   const consoleErrors: string[] = [];
   page.on('console', message => {
