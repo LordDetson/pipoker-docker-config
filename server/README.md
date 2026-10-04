@@ -58,6 +58,8 @@ The server pulls new versions itself, so GitHub never connects to it:
 QA is only for checking changes before a release. From the home network it opens directly;
 from anywhere else Caddy asks for the login set by `QA_USERNAME` and `QA_PASSWORD_HASH` in `caddy/.env`.
 After changing them: `docker compose -f caddy/compose.yml up -d`.
+Changes to `caddy/config/Caddyfile` need nothing: Caddy notices the new file, for example after a `git pull`,
+and reloads it without dropping connections.
 
 ## Activity dashboard
 
