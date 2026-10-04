@@ -8,7 +8,7 @@ services:
     restart: unless-stopped
     volumes:
       - mongodb-data:/data/db
-      - ../mongodb-image/create-app-user.js:/docker-entrypoint-initdb.d/create-app-user.js:ro
+      - ./mongodb/create-app-user.js:/docker-entrypoint-initdb.d/create-app-user.js:ro
     environment:
       MONGO_INITDB_ROOT_USERNAME: ${MONGODB_ROOT_USERNAME:?}
       MONGO_INITDB_ROOT_PASSWORD: ${MONGODB_ROOT_PASSWORD:?}
