@@ -1,14 +1,14 @@
 # pipoker-docker-config
 
-Scripts that start the PiPoker infrastructure on one Docker host. All containers join the `pipokernet` network.
+Everything that runs and checks [PiPoker](https://pipoker.duckdns.org) outside the application code.
+The application itself lives in [pipoker-app](https://github.com/LordDetson/pipoker-app) (backend) and
+[pipoker-web](https://github.com/LordDetson/pipoker-web) (web client); their GitHub Actions build and test every pull request
+and publish images to GitHub Container Registry from main.
 
-| Container  | Build            | Run                                                                                                          |
-|------------|------------------|--------------------------------------------------------------------------------------------------------------|
-| `rebbitmq` | `build-rebbitmq` | `run-rebbitmq <username> <password>`                                                                         |
-| `mongodb`  | `build-mongodb`  | `run-mongodb <root username> <root password> <app username> <app password>`                                  |
-| `jenkins`  | `build-jenkins`  | `run-jenkins <github token> <jenkins login> <jenkins password> <docker hub username> <docker hub password> <server ip> <broker username> <broker password> <mongodb app username> <mongodb app password>` |
-
-The broker and MongoDB application credentials passed to `run-jenkins` must match the ones passed to `run-rebbitmq` and `run-mongodb`.
-Jenkins stores them as the `BrokerLogin` and `MongoDbLogin` credentials, and the pipoker-app pipeline passes them to the `pipoker-api` container.
-
-MongoDB keeps its data in the `pipoker-mongodb-data` volume. The application user is created in the `pipoker` database only on the first start with an empty volume.
+| Path | What it is |
+|------|------------|
+| [`server/`](server/README.md) | The QA and PROD environments on one Docker host: compose files, Caddy, the update script that pulls new images, the activity dashboard. Its README describes the setup, releases and checks. |
+| `e2e/` | Live end-to-end tests with Playwright, run by the **Live E2E** workflow. |
+| `.github/workflows/test.yml` | Starts the whole server from `server/` on every pull request and checks QA and PROD with `server/check`. |
+| `.github/workflows/live-e2e.yml` | Runs `e2e/` against QA, or against pipoker-app and pipoker-web branches started like the server does. |
+| `.github/workflows/monitor.yml` | Checks PROD every 5 minutes and reports an outage by an issue and a Telegram message. |
