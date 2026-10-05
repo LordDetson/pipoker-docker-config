@@ -55,6 +55,11 @@ services:
       MONGODB_DBNAME: pipoker
       MONGODB_USR: ${MONGODB_APP_USERNAME}
       MONGODB_PASS: ${MONGODB_APP_PASSWORD}
+      # Bug reports from the site become Jira issues once these are set, and are only logged until then
+      PIPOKER_ENV: ${PIPOKER_ENV}
+      JIRA_URL: ${JIRA_URL:-}
+      JIRA_EMAIL: ${JIRA_EMAIL:-}
+      JIRA_API_TOKEN: ${JIRA_API_TOKEN:-}
     mem_limit: 768m
     networks:
       default:

@@ -74,6 +74,21 @@ Each backend serves its metrics on port 8081 (`/actuator/prometheus`), which onl
 reaches. Prometheus in `monitoring/` collects them every 30 seconds and keeps two years. Only counts are stored:
 no nicknames, room names or room ids. `./update` starts the dashboard once `monitoring/.env` exists.
 
+## Bug reports
+
+People report bugs from the site without signing up: the backend turns each report into a Bug in the Jira project
+PIP with the label `site-bug-report` (and `qa` or `prod`), on behalf of the owner of an API token. It takes at most
+3 reports an hour from one address and 20 an hour in total, which keeps spam out of Jira. Until the token is set,
+the reports are only written to the backend log (`docker compose --env-file prod.env -f compose.yml logs backend`).
+
+The token is an Atlassian API token with scopes, limited to creating issues:
+1. https://id.atlassian.com/manage-profile/security/api-tokens → **Create API token with scopes**,
+   app **Jira**, scope **write:jira-work**.
+2. In `qa.env` and `prod.env` set `JIRA_EMAIL` to the account's e-mail and `JIRA_API_TOKEN` to the token.
+   `JIRA_URL` is the Jira site through Atlassian's API gateway, which scoped tokens require
+   (`https://api.atlassian.com/ex/jira/<cloud id>`, the cloud id is at `https://<site>.atlassian.net/_edge/tenant_info`).
+3. `./update` restarts the backends with the token.
+
 ## Releasing to PROD
 
 Check the change on QA (for example with **Live E2E** below), then run **Promote to PROD** in pipoker-app and/or pipoker-web (Actions tab)

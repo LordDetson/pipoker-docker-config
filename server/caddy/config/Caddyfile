@@ -7,8 +7,12 @@
 }
 
 (pipoker) {
-	# The web client connects to the backend on the same domain
+	# The web client connects to the backend on the same domain: the rooms over a WebSocket, bug reports over HTTP.
+	# Caddy tells the backend the browser's address in X-Forwarded-For, which bug reports are limited by.
 	handle /ws* {
+		reverse_proxy {args[0]}-backend:8080
+	}
+	handle /api/* {
 		reverse_proxy {args[0]}-backend:8080
 	}
 	handle {
