@@ -39,12 +39,14 @@ services:
   # Cloudflare Tunnel: an outbound-only link to Cloudflare, so the router keeps ports 80/443 closed and the home
   # IP stays hidden. cloudflared forwards each request to Caddy (see cloudflared/config.yml). The tunnel id is
   # kept out of the committed config and passed here from CLOUDFLARE_TUNNEL_ID; the credentials file lives in
-  # ./cloudflared (created on the server, never committed). While CLOUDFLARE_TUNNEL_ID is unset the service
-  # refuses to start, which is deliberate: bring the tunnel up only once it is created (see the server README).
+  # ./cloudflared (created on the server, never committed). The service is behind the "tunnel" profile, so a
+  # plain `up` leaves it out; bring it up with `--profile tunnel` once the tunnel is created and
+  # CLOUDFLARE_TUNNEL_ID is set (see the server README).
   cloudflared:
     image: cloudflare/cloudflared:2026.10.0
     restart: unless-stopped
-    command: tunnel --no-autoupdate --config /etc/cloudflared/config.yml run ${CLOUDFLARE_TUNNEL_ID:?}
+    profiles: [tunnel]
+    command: tunnel --no-autoupdate --config /etc/cloudflared/config.yml run ${CLOUDFLARE_TUNNEL_ID:-}
     volumes:
       - ./cloudflared:/etc/cloudflared:ro
     networks:
