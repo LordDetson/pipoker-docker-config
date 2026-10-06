@@ -3,6 +3,14 @@
 {
 	servers {
 		protocols h1 h2
+		# pipoker.app and qa.pipoker.app sit behind the Cloudflare proxy, so the connecting address is
+		# Cloudflare's. Trust Cloudflare's ranges and take the real visitor from CF-Connecting-IP, so that
+		# {client_ip} (used for X-Forwarded-For below) is the visitor, not Cloudflare. A peer that isn't a
+		# Cloudflare address — a home visitor reaching the server directly, or anyone hitting the origin to
+		# spoof the header — is not trusted, so its CF-Connecting-IP is ignored. Update the list if Cloudflare
+		# ever changes it: https://www.cloudflare.com/ips
+		trusted_proxies static 173.245.48.0/20 103.21.244.0/22 103.22.200.0/22 103.31.4.0/22 141.101.64.0/18 108.162.192.0/18 190.93.240.0/20 188.114.96.0/20 197.234.240.0/22 198.41.128.0/17 162.158.0.0/15 104.16.0.0/13 104.24.0.0/14 172.64.0.0/13 131.0.72.0/22 2400:cb00::/32 2606:4700::/32 2803:f800::/32 2405:b500::/32 2405:8100::/32 2a06:98c0::/29 2c0f:f248::/32
+		client_ip_headers CF-Connecting-IP
 	}
 }
 
@@ -39,17 +47,19 @@
 	}
 
 	# The web client connects to the backend on the same domain: the rooms over a WebSocket, feedback over HTTP.
-	# Caddy tells the backend the browser's address in X-Forwarded-For, which feedback is limited by. Caddy
-	# replaces any X-Forwarded-For the client sent with the real connecting address (no proxy is trusted here),
-	# so the per-address limit can't be dodged with a made-up header.
-	# NOTE: when the site goes behind the Cloudflare proxy, the connecting address becomes Cloudflare's. Then
-	# trust Cloudflare's ranges (trusted_proxies) and take the client from CF-Connecting-IP, or every visitor
-	# would share Cloudflare's address for the limit.
+	# Feedback is rate-limited per address, so the backend must see the real visitor. {client_ip} is that
+	# visitor: Cloudflare's address resolved back to CF-Connecting-IP for trusted Cloudflare peers (see the
+	# global trusted_proxies), or the direct connecting address otherwise. Setting X-Forwarded-For to it
+	# overrides whatever the client sent, so the per-address limit can't be dodged with a made-up header.
 	handle /ws* {
-		reverse_proxy {args[0]}-backend:8080
+		reverse_proxy {args[0]}-backend:8080 {
+			header_up X-Forwarded-For {client_ip}
+		}
 	}
 	handle /api/* {
-		reverse_proxy {args[0]}-backend:8080
+		reverse_proxy {args[0]}-backend:8080 {
+			header_up X-Forwarded-For {client_ip}
+		}
 	}
 	handle {
 		reverse_proxy {args[0]}-web:80
