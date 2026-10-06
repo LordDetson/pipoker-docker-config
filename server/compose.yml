@@ -50,6 +50,8 @@ services:
       STOMP_BROKER_SYSTEM_PASS: ${BROKER_PASSWORD}
       STOMP_BROKER_USER_LOGIN: ${BROKER_USERNAME}
       STOMP_BROKER_USER_PASS: ${BROKER_PASSWORD}
+      # Page origins allowed to open a room WebSocket (see the environment file); unset means any origin
+      STOMP_ALLOWED_ORIGINS: ${STOMP_ALLOWED_ORIGINS:-*}
       MONGODB_HOST: mongodb
       MONGODB_PORT: 27017
       MONGODB_DBNAME: pipoker

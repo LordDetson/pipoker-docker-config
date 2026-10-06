@@ -7,8 +7,28 @@
 }
 
 (pipoker) {
+	# Security headers for the app and its web client. Not for the Grafana dashboard (/grafana on QA): it sets
+	# its own, and we don't fight it.
+	@site not path /grafana*
+	header @site {
+		# Keep the browser on HTTPS for a year. The .app zone is already in the HSTS preload list, so this only
+		# reaffirms it; includeSubDomains covers qa. (No "preload" directive until we're sure we never want HTTP.)
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		# Don't let the browser guess a response's type against its declared one
+		X-Content-Type-Options nosniff
+		# Nobody may frame the site, so a room can't be put in a hidden iframe to steal clicks on the votes
+		X-Frame-Options DENY
+		# Send the full URL only to our own origin, just the origin to others
+		Referrer-Policy strict-origin-when-cross-origin
+	}
+
 	# The web client connects to the backend on the same domain: the rooms over a WebSocket, feedback over HTTP.
-	# Caddy tells the backend the browser's address in X-Forwarded-For, which feedback is limited by.
+	# Caddy tells the backend the browser's address in X-Forwarded-For, which feedback is limited by. Caddy
+	# replaces any X-Forwarded-For the client sent with the real connecting address (no proxy is trusted here),
+	# so the per-address limit can't be dodged with a made-up header.
+	# NOTE: when the site goes behind the Cloudflare proxy, the connecting address becomes Cloudflare's. Then
+	# trust Cloudflare's ranges (trusted_proxies) and take the client from CF-Connecting-IP, or every visitor
+	# would share Cloudflare's address for the limit.
 	handle /ws* {
 		reverse_proxy {args[0]}-backend:8080
 	}
