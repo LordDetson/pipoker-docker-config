@@ -93,7 +93,9 @@ $D tunnel login            # (prepend `-it`: docker run -it ... for this one, so
 $D tunnel create pipoker   # note the tunnel id it prints
 mv caddy/cloudflared/<TUNNEL_ID>.json caddy/cloudflared/credentials.json
 
-# 3. Put the id in caddy/.env as CLOUDFLARE_TUNNEL_ID=<TUNNEL_ID>, then start the tunnel.
+# 3. In caddy/.env set CLOUDFLARE_TUNNEL_ID=<TUNNEL_ID> and COMPOSE_PROFILES=tunnel (the latter turns the
+#    cloudflared service on for every compose command here, so it keeps running after a reboot or a manual
+#    bring-up once the ports are closed), then start the tunnel.
 docker compose -f caddy/compose.yml up -d
 
 # 4. Point the domains at the tunnel, one at a time, checking each from outside the home network before the next
