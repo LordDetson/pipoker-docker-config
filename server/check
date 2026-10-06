@@ -1,7 +1,7 @@
 #!/bin/bash
 # Checks what a user of an environment would see: the web client, the backend and a working room.
 # Prints nothing and exits 0 when everything works; otherwise prints the problem and exits 1.
-# Usage: ./check https://pipoker.duckdns.org
+# Usage: ./check https://pipoker.app
 set -uo pipefail
 
 url="${1:?usage: $0 <base url>}"

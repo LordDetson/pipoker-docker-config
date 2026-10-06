@@ -1,6 +1,6 @@
 // Creates a room in a running environment and waits for a room event sent through the broker.
 // Then both participants leave, which deletes the room, so repeated checks don't pile up rooms in the database.
-// Usage: node smoke-test.mjs <base url>, e.g. node smoke-test.mjs https://pipoker-qa.duckdns.org
+// Usage: node smoke-test.mjs <base url>, e.g. node smoke-test.mjs https://qa.pipoker.app
 const baseUrl = new URL(process.argv[2] ?? 'http://localhost');
 const wsUrl = `${baseUrl.protocol === 'https:' ? 'wss' : 'ws'}://${baseUrl.host}/ws/websocket`;
 

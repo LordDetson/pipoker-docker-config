@@ -28,7 +28,19 @@ The server pulls new versions itself, so GitHub never connects to it:
 ## Setup
 
 1. Register two subdomains on https://www.duckdns.org, for example `pipoker` and `pipoker-qa`,
-   and note the token.
+   and note the token. DuckDNS follows the home IP address when it changes.
+   The site's own domain `pipoker.app` is registered at hoster.by and its DNS is on Cloudflare (free plan),
+   which points the domain at the DuckDNS names, so it follows the IP address too:
+
+   | Type  | Name | Target                   | Proxy status |
+   |-------|------|--------------------------|--------------|
+   | CNAME | `@`  | `pipoker.duckdns.org`    | DNS only     |
+   | CNAME | `qa` | `pipoker-qa.duckdns.org` | DNS only     |
+
+   Cloudflare answers for the CNAME at the root with the address it points to (CNAME flattening).
+   "DNS only" keeps Cloudflare out of the connection, so Caddy gets the certificates itself.
+   At home the router doesn't loop the public address back, so the home DNS (AdGuard) needs a rewrite
+   of each domain to the server's LAN address.
 2. Install Docker:
    ```
    curl -fsSL https://get.docker.com | sudo sh
@@ -100,7 +112,7 @@ with the commit SHA. A rollback is the same workflow with an older SHA.
 ## Checking an environment
 
 ```
-node smoke-test.mjs https://pipoker-qa.duckdns.org
+node smoke-test.mjs https://qa.pipoker.app
 ```
 creates a room and waits for a room event, which exercises the web proxy, the backend, MongoDB and RabbitMQ.
 

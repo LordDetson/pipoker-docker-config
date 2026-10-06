@@ -1,7 +1,7 @@
 import {Browser, BrowserContextOptions, expect, Locator, Page, test} from '@playwright/test';
 import {httpCredentials, roomExists} from './stomp';
 
-export const baseUrl = process.env.BASE_URL ?? 'https://pipoker-qa.duckdns.org';
+export const baseUrl = process.env.BASE_URL ?? 'https://qa.pipoker.app';
 export const testRoomName = () => `E2E ${new Date().toISOString().slice(11, 19)}`;
 
 // One person is one browser profile: their own storage, their own WebSocket connection.

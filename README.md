@@ -1,6 +1,6 @@
 # pipoker-docker-config
 
-Everything that runs and checks [PiPoker](https://pipoker.duckdns.org) outside the application code.
+Everything that runs and checks [PiPoker](https://pipoker.app) outside the application code.
 The application itself lives in [pipoker-app](https://github.com/LordDetson/pipoker-app) (backend) and
 [pipoker-web](https://github.com/LordDetson/pipoker-web) (web client); their GitHub Actions build and test every pull request
 and publish images to GitHub Container Registry from main.
