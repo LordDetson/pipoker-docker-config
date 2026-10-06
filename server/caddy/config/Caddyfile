@@ -15,12 +15,10 @@
 	}
 }
 
-# Certificate issuance. The primary domains (pipoker.app, qa.pipoker.app) are issued with a DNS-01 challenge
-# through Cloudflare, so renewal keeps working even when the domain is proxied by Cloudflare — an HTTP-01 or
-# TLS-ALPN-01 challenge can't reach the origin through the proxy. The duckdns names aren't in the Cloudflare
-# account, so that challenge can't be solved for them and Caddy falls back to the default challenge, which
-# works while the ports are open to the internet. CLOUDFLARE_API_TOKEN is scoped to Zone:DNS:Edit for the
-# pipoker.app zone; while it's empty, every domain uses the default challenge.
+# Certificate issuance. The domains (pipoker.app, qa.pipoker.app) are issued with a DNS-01 challenge through
+# Cloudflare, so renewal keeps working even though the domains are proxied by Cloudflare — an HTTP-01 or
+# TLS-ALPN-01 challenge can't reach the origin through the proxy or the tunnel. CLOUDFLARE_API_TOKEN is scoped
+# to Zone:DNS:Edit for the pipoker.app zone; while it's empty, every domain uses the default challenge.
 (cf-tls) {
 	tls {
 		issuer acme {
