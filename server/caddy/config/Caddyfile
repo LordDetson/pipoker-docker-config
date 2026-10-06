@@ -43,6 +43,8 @@
 		X-Frame-Options DENY
 		# Send the full URL only to our own origin, just the origin to others
 		Referrer-Policy strict-origin-when-cross-origin
+		# Switch off browser features PiPoker never uses, so a compromised page can't reach for them
+		Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
 	}
 
 	# The web client connects to the backend on the same domain: the rooms over a WebSocket, feedback over HTTP.
@@ -85,6 +87,10 @@
 		not client_ip private_ranges
 		not header Cookie *pipoker_qa_login={$QA_PASSWORD_HASH}*
 	}
+	# Content-Security-Policy in report-only, on QA first: the browser reports violations to its console but
+	# blocks nothing, so we can see what a strict policy would break before enforcing it on PROD. Not on
+	# /grafana — it ships its own headers.
+	@csp not path /grafana*
 	# A route keeps this order: Caddy would otherwise set the header before checking the login,
 	# and the cookie would go out with the request for the login too
 	route {
@@ -92,6 +98,7 @@
 			{$QA_USERNAME} {$QA_PASSWORD_HASH}
 		}
 		header @login Set-Cookie "pipoker_qa_login={$QA_PASSWORD_HASH}; Path=/; Max-Age=2592000; Secure; HttpOnly; SameSite=Lax"
+		header @csp Content-Security-Policy-Report-Only "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'; manifest-src 'self'; frame-ancestors 'none'; base-uri 'self'; object-src 'none'; form-action 'self'"
 		# The activity dashboard of both environments (see ../../monitoring), behind the same login
 		handle /grafana* {
 			reverse_proxy pipoker-grafana:3000
