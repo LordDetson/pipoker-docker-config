@@ -98,7 +98,9 @@
 			{$QA_USERNAME} {$QA_PASSWORD_HASH}
 		}
 		header @login Set-Cookie "pipoker_qa_login={$QA_PASSWORD_HASH}; Path=/; Max-Age=2592000; Secure; HttpOnly; SameSite=Lax"
-		header @csp Content-Security-Policy-Report-Only "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'; manifest-src 'self'; frame-ancestors 'none'; base-uri 'self'; object-src 'none'; form-action 'self'"
+		# worker-src 'self' blob: — the app runs its ping timer in a Worker built from a blob: URL (so a
+		# background tab can't throttle it); without this directive it would fall back to script-src and be blocked.
+		header @csp Content-Security-Policy-Report-Only "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'; worker-src 'self' blob:; manifest-src 'self'; frame-ancestors 'none'; base-uri 'self'; object-src 'none'; form-action 'self'"
 		# The activity dashboard of both environments (see ../../monitoring), behind the same login
 		handle /grafana* {
 			reverse_proxy pipoker-grafana:3000
