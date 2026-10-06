@@ -29,7 +29,29 @@ services:
       - caddy-data:/data
       - caddy-config:/config
     networks:
-      - edge
+      edge: {}
+      # Caddy also sits on a tiny private network shared only with cloudflared, on a fixed address. The Caddyfile
+      # trusts exactly that address as a proxy, so the real visitor IP (from CF-Connecting-IP) is honoured for
+      # traffic that arrives through the tunnel, and nothing else can pretend to be the tunnel.
+      tunnel:
+        ipv4_address: 10.89.7.3
+
+  # Cloudflare Tunnel: an outbound-only link to Cloudflare, so the router keeps ports 80/443 closed and the home
+  # IP stays hidden. cloudflared forwards each request to Caddy (see cloudflared/config.yml). The tunnel id is
+  # kept out of the committed config and passed here from CLOUDFLARE_TUNNEL_ID; the credentials file lives in
+  # ./cloudflared (created on the server, never committed). While CLOUDFLARE_TUNNEL_ID is unset the service
+  # refuses to start, which is deliberate: bring the tunnel up only once it is created (see the server README).
+  cloudflared:
+    image: cloudflare/cloudflared:2026.10.0
+    restart: unless-stopped
+    command: tunnel --no-autoupdate --config /etc/cloudflared/config.yml run ${CLOUDFLARE_TUNNEL_ID:?}
+    volumes:
+      - ./cloudflared:/etc/cloudflared:ro
+    networks:
+      tunnel:
+        ipv4_address: 10.89.7.2
+    depends_on:
+      - caddy
 
 volumes:
   caddy-data:
@@ -39,3 +61,8 @@ networks:
   edge:
     name: pipoker-edge
     external: true
+  tunnel:
+    name: pipoker-tunnel
+    ipam:
+      config:
+        - subnet: 10.89.7.0/29
