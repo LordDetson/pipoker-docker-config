@@ -3,7 +3,11 @@ name: pipoker-caddy
 
 services:
   caddy:
-    image: caddy:2-alpine
+    # Caddy plus the Cloudflare DNS plugin (see Dockerfile). Built locally so it needn't be published anywhere.
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: pipoker-caddy:local
     restart: unless-stopped
     # Reloads the configuration when the Caddyfile changes, for example after a git pull
     command: caddy run --config /etc/caddy/Caddyfile --adapter caddyfile --watch
@@ -15,6 +19,9 @@ services:
       QA_DOMAIN: ${QA_DOMAIN:?}
       QA_USERNAME: ${QA_USERNAME:?}
       QA_PASSWORD_HASH: ${QA_PASSWORD_HASH:?}
+      # Cloudflare API token scoped to Zone:DNS:Edit for the pipoker.app zone, used for the DNS-01 challenge
+      # (see the Caddyfile). Left empty, the primary domains fall back to the default challenge.
+      CLOUDFLARE_API_TOKEN: ${CLOUDFLARE_API_TOKEN:-}
     volumes:
       # The folder rather than the file: git replaces a changed file with a new one, and a container that
       # mounts the file alone keeps seeing the old one
