@@ -41,6 +41,11 @@ The server pulls new versions itself, so GitHub never connects to it:
    "DNS only" keeps Cloudflare out of the connection, so Caddy gets the certificates itself.
    At home the router doesn't loop the public address back, so the home DNS (AdGuard) needs a rewrite
    of each domain to the server's LAN address.
+
+   To later put `pipoker.app` behind the Cloudflare proxy (the orange cloud, for a hidden origin IP and
+   DDoS protection), set `CLOUDFLARE_API_TOKEN` in `caddy/.env` (see that file). Caddy then renews the
+   `pipoker.app` and `qa.pipoker.app` certificates with a DNS-01 challenge, which still works through the
+   proxy; the DuckDNS names stay "DNS only" and keep the default challenge.
 2. Install Docker:
    ```
    curl -fsSL https://get.docker.com | sudo sh
