@@ -70,6 +70,50 @@ The server pulls new versions itself, so GitHub never connects to it:
 5. In both pipoker-app and pipoker-web on GitHub create the environment `prod`
    (Settings → Environments) with yourself as a required reviewer.
 
+## Hiding the home IP with a Cloudflare Tunnel
+
+The steps above leave the home IP address visible: the DuckDNS names resolve to it and ports 80 and 443 are
+open to the internet, so the server can be reached directly, around Cloudflare. A Cloudflare Tunnel removes both:
+`cloudflared` makes an *outbound* connection to Cloudflare and every request arrives back through it, so the
+router needs no open ports and the address is never published. Caddy still does all the routing, the security
+headers, the QA login and the dashboard — the tunnel only replaces the way traffic gets in. It needs no paid plan
+and no Zero Trust seat; the free account is enough.
+
+Set it up once, from the `server` directory (Docker is already installed, so `cloudflared` runs from its image
+and nothing is added to the host):
+
+```
+cd ~/pipoker-docker-config/server
+D='docker run --rm --user root -v '"$PWD"'/caddy/cloudflared:/etc/cloudflared -e TUNNEL_ORIGIN_CERT=/etc/cloudflared/cert.pem cloudflare/cloudflared:2026.10.0'
+
+# 1. Authorise with your Cloudflare account. It prints a link; open it and pick the pipoker.app zone.
+$D tunnel login            # (prepend `-it`: docker run -it ... for this one, so the link shows)
+
+# 2. Create the tunnel, then give its credentials the fixed name the config expects.
+$D tunnel create pipoker   # note the tunnel id it prints
+mv caddy/cloudflared/<TUNNEL_ID>.json caddy/cloudflared/credentials.json
+
+# 3. Put the id in caddy/.env as CLOUDFLARE_TUNNEL_ID=<TUNNEL_ID>, then start the tunnel.
+docker compose -f caddy/compose.yml up -d
+
+# 4. Point the domains at the tunnel, one at a time, checking each from outside the home network before the next
+#    (this replaces their current DNS records). Start with QA, then PROD.
+$D tunnel route dns --overwrite-dns pipoker qa.pipoker.app
+$D tunnel route dns --overwrite-dns pipoker pipoker.app
+```
+
+`credentials.json` and `cert.pem` are secrets and are git-ignored; only `cloudflared/config.yml` is tracked, and
+it carries no id, so it is the same on every install. Caddy trusts the tunnel's fixed address `10.89.7.2` as a
+proxy (see the Caddyfile), so the real visitor address still reaches the backend through `CF-Connecting-IP`.
+
+Once both domains answer through the tunnel, close the circle:
+- on the router, stop forwarding ports 80 and 443 (the tunnel no longer needs them);
+- drop the DuckDNS names from `PROD_DOMAIN` and `QA_DOMAIN` in `caddy/.env`, remove the DuckDNS line from `crontab`,
+  and delete the names on duckdns.org — they would otherwise keep publishing the home IP;
+- run `docker compose -f caddy/compose.yml up -d` to apply the shortened domain lists.
+
+At home the sites keep working directly through the AdGuard rewrite, so closing the ports changes nothing there.
+
 ## QA access
 
 QA is only for checking changes before a release. From the home network it opens directly;
