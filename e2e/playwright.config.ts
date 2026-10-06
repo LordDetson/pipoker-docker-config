@@ -12,7 +12,7 @@ export default defineConfig({
   retries: 0,
   reporter: [['line'], ['html', {open: 'never'}], ['json', {outputFile: 'results.json'}]],
   use: {
-    baseURL: process.env.BASE_URL ?? 'https://pipoker-qa.duckdns.org',
+    baseURL: process.env.BASE_URL ?? 'https://qa.pipoker.app',
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure'

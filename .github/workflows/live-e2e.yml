@@ -10,7 +10,7 @@ on:
     inputs:
       url:
         description: Environment for the qa job
-        default: https://pipoker-qa.duckdns.org
+        default: https://qa.pipoker.app
       app_ref:
         description: pipoker-app branch for the local job
         default: main
@@ -27,7 +27,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
-      BASE_URL: ${{ inputs.url || 'https://pipoker-qa.duckdns.org' }}
+      BASE_URL: ${{ inputs.url || 'https://qa.pipoker.app' }}
       QA_USERNAME: ${{ secrets.QA_USERNAME }}
       QA_PASSWORD: ${{ secrets.QA_PASSWORD }}
     steps:
