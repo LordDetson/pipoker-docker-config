@@ -40,14 +40,18 @@ test('two people play a round on phones', async ({browser}, testInfo) => {
 
   await deckCard(alice, '1d').tap();
   await expect(deckCard(alice, '1d')).toHaveClass(/selected/);
+  await expectFitsTheScreen(alice.page, 'room with a vote');
+  // The last vote reveals the cards
   await vote(bob, '2d');
-  await expectFitsTheScreen(alice.page, 'room with votes');
+  await expectRevealed([alice, bob], {Alice: '1d', Bob: '2d'});
+  await expectFitsTheScreen(alice.page, 'revealed cards');
 
   // The person has to find the button: scroll to it as a finger would
   await mainButton(bob).scrollIntoViewIfNeeded();
   await mainButton(bob).tap();
-  await expectRevealed([alice, bob], {Alice: '1d', Bob: '2d'});
-  await expectFitsTheScreen(alice.page, 'revealed cards');
+  for (const someone of [alice, bob]) {
+    await expect(mainButton(someone)).toHaveText('Voting...');
+  }
 
   noConsoleErrors([alice, bob]);
   await leaveAll([alice, bob], roomId);

@@ -52,19 +52,15 @@ test('a team plays two rounds: voters, a watcher, revealing, a new round and som
   await expect(mainButton(alice)).toHaveText('Voting...');
   await expect(mainButton(alice)).toBeDisabled();
 
-  // Round 1
+  // Round 1: the cards stay hidden until every voter has voted, then turn over by themselves
   await timed('vote and see it on every screen', async () => {
     await vote(alice, '3');
     await expectVoted(everyone, 'Alice');
   });
-  await vote(bob, '8');
-  await expectVoted(everyone, 'Bob');
-  // Cards stay hidden until someone reveals them
   await expect(seat(carol, 'Alice').locator('.card-value')).toHaveCount(0);
-
   await expect(mainButton(carol)).toHaveText('Reveal Cards');
-  await timed('reveal the cards', async () => {
-    await mainButton(bob).click();
+  await timed('the last vote reveals the cards', async () => {
+    await vote(bob, '8');
     await expectRevealed(everyone, {Alice: '3', Bob: '8'});
   });
   await expect(mainButton(alice)).toHaveText('Start New Voting');
@@ -81,16 +77,20 @@ test('a team plays two rounds: voters, a watcher, revealing, a new round and som
   await expect(alice.page.locator('app-deck-card.selected')).toHaveCount(0);
   await expect(bob.page.locator('app-deck-card')).toHaveCount(7);
 
-  await vote(bob, '5');
   // Changing your mind before the reveal
   await vote(alice, '1');
   await expectVoted(everyone, 'Alice');
   await vote(alice, '13');
   await expect(alice.page.locator('app-deck-card.selected')).toHaveCount(1);
   await expect.poll(async () => (await fetchRoom(baseUrl, roomId)).votes, {message: 'the server keeps only the last vote'})
-    .toEqual(expect.arrayContaining([{nickname: 'Alice', card: '13'}, {nickname: 'Bob', card: '5'}]));
-  await mainButton(carol).click();
-  await expectRevealed(everyone, {Alice: '13', Bob: '5'});
+    .toEqual([{nickname: 'Alice', card: '13'}]);
+  // Bob has not voted, so the cards wait until someone reveals them
+  await expect(seat(carol, 'Alice').locator('.card-value')).toHaveCount(0);
+  await timed('reveal the cards', async () => {
+    await mainButton(carol).click();
+    await expectRevealed(everyone, {Alice: '13'});
+  });
+  await expectVoted(everyone, 'Bob', false);
 
   // Bob closes the tab
   await timed('leave and disappear from every screen', async () => {
@@ -104,30 +104,33 @@ test('a team plays two rounds: voters, a watcher, revealing, a new round and som
 
 test('someone who joins later sees the votes already made', async ({browser}) => {
   const alice = await person(browser, 'Alice');
+  const bob = await person(browser, 'Bob');
   // A nickname like a work login, with a dot
-  const bob = await person(browser, 'b.smith');
+  const late = await person(browser, 'b.smith');
   const roomId = await createRoom(alice, {deck});
+  await joinRoom(bob, roomId);
+  // Bob has not voted yet, so Alice's vote stays hidden
   await vote(alice, '2');
 
-  await joinRoom(bob, roomId);
-  await expectSeats([alice, bob], ['Alice', 'b.smith']);
-  await expectVoted([bob], 'Alice');
-  await expect(mainButton(bob)).toHaveText('Reveal Cards');
+  await joinRoom(late, roomId);
+  await expectSeats([alice, bob, late], ['Alice', 'Bob', 'b.smith']);
+  await expectVoted([late], 'Alice');
+  await expect(mainButton(late)).toHaveText('Reveal Cards');
 
-  await vote(bob, '3');
-  await mainButton(bob).click();
-  await expectRevealed([alice, bob], {Alice: '2', 'b.smith': '3'});
+  await vote(bob, '8');
+  await vote(late, '3');
+  await expectRevealed([alice, bob, late], {Alice: '2', Bob: '8', 'b.smith': '3'});
 
-  noConsoleErrors([alice, bob]);
-  await leaveAll([alice, bob], roomId);
+  noConsoleErrors([alice, bob, late]);
+  await leaveAll([alice, bob, late], roomId);
 });
 
 test('someone who joins after the reveal sees the revealed cards', async ({browser}) => {
   const alice = await person(browser, 'Alice');
   const bob = await person(browser, 'Bob');
   const roomId = await createRoom(alice, {deck});
+  // The only voter's vote reveals the cards at once
   await vote(alice, '5');
-  await mainButton(alice).click();
   await expectRevealed([alice], {Alice: '5'});
 
   await joinRoom(bob, roomId);
@@ -193,17 +196,16 @@ test('everyone in a room votes at the same moment and every vote counts', async 
   await expectSeats(team, names);
 
   const values = ['1', '2', '3', '5', '8', '13'];
+  // The last of the simultaneous votes reveals the cards, once, with every vote on them
   await timed('six people vote at once', async () => {
     await Promise.all(team.map((someone, index) => deckCard(someone, values[index]).click()));
-    for (const name of names) {
-      await expectVoted(team, name);
-    }
+    await expectRevealed(team, Object.fromEntries(names.map((name, index) => [name, values[index]])));
   });
   const room = await fetchRoom(baseUrl, roomId);
   expect(room.votes?.length, 'the server stored every vote').toBe(names.length);
-
-  await mainButton(team[0]).click();
-  await expectRevealed(team, Object.fromEntries(names.map((name, index) => [name, values[index]])));
+  for (const someone of team) {
+    await expect(mainButton(someone)).toHaveText('Start New Voting');
+  }
 
   noConsoleErrors(team);
   await leaveAll(team, roomId);
