@@ -44,8 +44,8 @@ jobs:
               sleep 2
             done
             curl -fsS "$url/room/some-room" | grep -q '<app-root'
-            # Bug reports go to the backend, which answers with its own JSON error (the web server would answer with HTML)
-            curl -sS -X POST -H "Content-Type: application/json" -d '{}' "$url/api/bug-reports" | grep -q '"path":"/api/bug-reports"'
+            # Feedback goes to the backend, which answers with its own JSON error (the web server would answer with HTML)
+            curl -sS -X POST -H "Content-Type: application/json" -d '{}' "$url/api/feedback" | grep -q '"path":"/api/feedback"'
             # The backend connects to RabbitMQ in the background, so the first attempt may come too early
             for attempt in 1 2 3; do
               ./check "$url" && continue 2
