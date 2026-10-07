@@ -19,6 +19,11 @@ services:
       QA_DOMAIN: ${QA_DOMAIN:?}
       QA_USERNAME: ${QA_USERNAME:?}
       QA_PASSWORD_HASH: ${QA_PASSWORD_HASH:?}
+      # Random secret that becomes the QA login cookie's value (see the Caddyfile): unrelated to the password,
+      # so the cookie never carries the credential and rotating it signs everyone out of QA. Required, to fail
+      # the deploy loudly if it is missing; the Caddyfile is what keeps QA safe when the token is empty (its
+      # login matcher rejects an empty token), so an empty value degrades QA to password-only, never a free pass.
+      QA_COOKIE_TOKEN: ${QA_COOKIE_TOKEN:?}
       # Cloudflare API token scoped to Zone:DNS:Edit for the pipoker.app zone, used for the DNS-01 challenge
       # (see the Caddyfile). Left empty, the primary domains fall back to the default challenge.
       CLOUDFLARE_API_TOKEN: ${CLOUDFLARE_API_TOKEN:-}

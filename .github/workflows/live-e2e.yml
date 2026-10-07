@@ -94,7 +94,7 @@ jobs:
         working-directory: server
         run: |
           sed 's/_TAG=.*/_TAG=local/' prod.env.example > prod.env
-          printf 'PROD_DOMAIN=http://prod.localhost\nQA_DOMAIN=http://qa.localhost\nQA_USERNAME=test\n' > caddy/.env
+          printf 'PROD_DOMAIN=http://prod.localhost\nQA_DOMAIN=http://qa.localhost\nQA_USERNAME=test\nQA_COOKIE_TOKEN=test\n' > caddy/.env
           echo "QA_PASSWORD_HASH='$(docker run --rm caddy:2-alpine caddy hash-password --plaintext test)'" >> caddy/.env
           echo "127.0.0.1 prod.localhost" | sudo tee -a /etc/hosts
           # The backend also logs how each connection closed and which messages arrived, for the presence checks

@@ -75,17 +75,22 @@
 # QA is for testing before a release: from outside the home network it asks for a login and password.
 # Safari, on the iPhone too, leaves that login out of a WebSocket connection, so a room couldn't connect over one.
 # A browser that has logged in therefore also gets a cookie, which every browser sends with a WebSocket connection,
-# and the cookie lets it in without the login. Its value is the password hash: only a browser that knew
-# the password gets it, and a new password makes the old cookies useless.
+# and the cookie lets it in without the login. Its value is a random secret (QA_COOKIE_TOKEN), not the password
+# or its hash, so the cookie never carries the credential; rotating the token signs every browser out of QA
+# without touching the password.
 {$QA_DOMAIN} {
 	import cf-tls
 	# Ask for the login unless the visitor is on the home network or already carries the cookie. The test is on
 	# {client_ip} (the real visitor from the global trusted_proxies / CF-Connecting-IP), not on the connecting
 	# address: through the tunnel the connecting address is always cloudflared, a private one, so a test on it
 	# would wave everyone in. A home visitor's real address is a private one, so they still skip the login.
+	# The cookie check is an exact match that also rejects an empty token. Caddy runs with --watch, so a git
+	# pull can reload this file before `docker compose up -d` has put QA_COOKIE_TOKEN into the container's
+	# environment; in that gap the token reads empty. An empty token must never let anyone in, so the
+	# expression demands a non-empty token AND the exact value — otherwise QA just falls back to the password.
 	@login {
 		not client_ip private_ranges
-		not header Cookie *pipoker_qa_login={$QA_PASSWORD_HASH}*
+		expression `{env.QA_COOKIE_TOKEN} == "" || {http.request.cookie.pipoker_qa_login} != {env.QA_COOKIE_TOKEN}`
 	}
 	# Content-Security-Policy, enforced on QA first (PROD stays without one until its web image drops the
 	# inline scripts). We ran it in report-only long enough to see nothing of ours is blocked; the only
@@ -99,7 +104,7 @@
 		basic_auth @login {
 			{$QA_USERNAME} {$QA_PASSWORD_HASH}
 		}
-		header @login Set-Cookie "pipoker_qa_login={$QA_PASSWORD_HASH}; Path=/; Max-Age=2592000; Secure; HttpOnly; SameSite=Lax"
+		header @login Set-Cookie "pipoker_qa_login={$QA_COOKIE_TOKEN}; Path=/; Max-Age=2592000; Secure; HttpOnly; SameSite=Lax"
 		# worker-src 'self' blob: — the app runs its ping timer in a Worker built from a blob: URL (so a
 		# background tab can't throttle it); without this directive it would fall back to script-src and be blocked.
 		header @csp Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'; worker-src 'self' blob:; manifest-src 'self'; frame-ancestors 'none'; base-uri 'self'; object-src 'none'; form-action 'self'"
