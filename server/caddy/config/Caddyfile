@@ -87,8 +87,10 @@
 		not client_ip private_ranges
 		not header Cookie *pipoker_qa_login={$QA_PASSWORD_HASH}*
 	}
-	# Content-Security-Policy in report-only, on QA first: the browser reports violations to its console but
-	# blocks nothing, so we can see what a strict policy would break before enforcing it on PROD. Not on
+	# Content-Security-Policy, enforced on QA first (PROD stays without one until its web image drops the
+	# inline scripts). We ran it in report-only long enough to see nothing of ours is blocked; the only
+	# console notes were Cloudflare's analytics beacon (now turned off at the edge) and WebKit's warning
+	# that frame-ancestors is ignored in a report-only policy, which enforcing removes. Not on
 	# /grafana — it ships its own headers.
 	@csp not path /grafana*
 	# A route keeps this order: Caddy would otherwise set the header before checking the login,
@@ -100,7 +102,7 @@
 		header @login Set-Cookie "pipoker_qa_login={$QA_PASSWORD_HASH}; Path=/; Max-Age=2592000; Secure; HttpOnly; SameSite=Lax"
 		# worker-src 'self' blob: — the app runs its ping timer in a Worker built from a blob: URL (so a
 		# background tab can't throttle it); without this directive it would fall back to script-src and be blocked.
-		header @csp Content-Security-Policy-Report-Only "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'; worker-src 'self' blob:; manifest-src 'self'; frame-ancestors 'none'; base-uri 'self'; object-src 'none'; form-action 'self'"
+		header @csp Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'; worker-src 'self' blob:; manifest-src 'self'; frame-ancestors 'none'; base-uri 'self'; object-src 'none'; form-action 'self'"
 		# The activity dashboard of both environments (see ../../monitoring), behind the same login
 		handle /grafana* {
 			reverse_proxy pipoker-grafana:3000
