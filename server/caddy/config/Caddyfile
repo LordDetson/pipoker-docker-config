@@ -69,6 +69,12 @@
 
 {$PROD_DOMAIN} {
 	import cf-tls
+	# Content-Security-Policy, enforced. PROD serves the web image with the inline scripts removed (web#69,
+	# on PROD since 2026-10-07), so the same policy QA ran in report-only and now enforces is safe here too.
+	# Kept as its own line rather than shared with QA: QA excludes /grafana and the two can diverge. worker-src
+	# 'self' blob: — the app runs its ping timer in a Worker built from a blob: URL (so a background tab can't
+	# throttle it); without the directive it would fall back to script-src and be blocked.
+	header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'; worker-src 'self' blob:; manifest-src 'self'; frame-ancestors 'none'; base-uri 'self'; object-src 'none'; form-action 'self'"
 	import pipoker prod
 }
 
@@ -92,11 +98,9 @@
 		not client_ip private_ranges
 		expression `{env.QA_COOKIE_TOKEN} == "" || {http.request.cookie.pipoker_qa_login} != {env.QA_COOKIE_TOKEN}`
 	}
-	# Content-Security-Policy, enforced on QA first (PROD stays without one until its web image drops the
-	# inline scripts). We ran it in report-only long enough to see nothing of ours is blocked; the only
-	# console notes were Cloudflare's analytics beacon (now turned off at the edge) and WebKit's warning
-	# that frame-ancestors is ignored in a report-only policy, which enforcing removes. Not on
-	# /grafana — it ships its own headers.
+	# Content-Security-Policy, enforced. Same policy as PROD (see the PROD block), but kept separate because
+	# QA must exclude /grafana, which ships its own headers and which PROD doesn't run. We ran it in report-only
+	# on QA long enough to see nothing of ours is blocked before enforcing on both environments.
 	@csp not path /grafana*
 	# A route keeps this order: Caddy would otherwise set the header before checking the login,
 	# and the cookie would go out with the request for the login too
