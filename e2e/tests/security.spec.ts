@@ -149,7 +149,9 @@ test('a browser learns that the WebSocket is there', async ({api}) => {
 
 // The handshake of a browser opening a WebSocket, with the Origin of the page that asks for it, or none for a
 // client that is not a page, like the tests' own STOMP client.
-async function tryUpgrade(api: APIRequestContext, label: string, origin?: string): Promise<{label: string; status?: number; accepted: boolean; outcome: string}> {
+type Upgrade = {label: string; status?: number; answeredBy?: string; accepted: boolean; outcome: string};
+
+async function tryUpgrade(api: APIRequestContext, label: string, origin?: string): Promise<Upgrade> {
   const headers: Record<string, string> = {
     Connection: 'Upgrade',
     Upgrade: 'websocket',
@@ -159,8 +161,10 @@ async function tryUpgrade(api: APIRequestContext, label: string, origin?: string
   };
   try {
     const response = await api.get('/ws/websocket', {headers, timeout: UPGRADE_TIMEOUT_MS, maxRedirects: 0});
-    const text = (await response.text()).trim().slice(0, 80);
-    return {label, status: response.status(), accepted: false, outcome: `answered ${response.status()}${text ? ` "${text}"` : ''}`};
+    // The Server header tells where a refusal came from: Cloudflare names itself, the backend behind Caddy says nothing
+    const answeredBy = response.headers()['server'];
+    const text = (await response.text()).trim().replace(/\s+/g, ' ').slice(0, 80);
+    return {label, status: response.status(), answeredBy, accepted: false, outcome: `answered ${response.status()}${answeredBy ? ` by ${answeredBy}` : ''}${text ? ` "${text}"` : ''}`};
   } catch (error) {
     const message = String((error as Error).message).split('\n')[0];
     return /Timeout/.test(message)
@@ -195,7 +199,15 @@ test('a page on another site cannot open a room WebSocket, while the site\'s own
     console.log(`WebSocket upgrade with ${upgrade.label}: ${upgrade.outcome}`);
   }
   const [upgradeWithoutOrigin, upgradeOwn, upgradeAllowed, upgradeForeign] = upgrades;
-  expect(upgradeForeign.status, `a WebSocket from ${foreignOrigin} is refused with 403, got: ${upgradeForeign.outcome}`).toBe(403);
+  // The backend refuses a foreign page with 403. On the real domains Cloudflare stands in front, and when a server
+  // answers a WebSocket handshake with anything but 101 Cloudflare keeps that answer to itself and reports a
+  // 502 Bad Gateway of its own, so there the refusal shows as Cloudflare's 502. A local copy has no Cloudflare and
+  // shows the 403 itself. Either way the foreign page gets no WebSocket.
+  expect(upgradeForeign.accepted, `a WebSocket from ${foreignOrigin} is refused, got: ${upgradeForeign.outcome}`).toBe(false);
+  const refusedByCloudflare = upgradeForeign.answeredBy === 'cloudflare' && upgradeForeign.status === 502;
+  if (!refusedByCloudflare) {
+    expect(upgradeForeign.status, `a WebSocket from ${foreignOrigin} is refused with 403, got: ${upgradeForeign.outcome}`).toBe(403);
+  }
   expect(upgradeAllowed.accepted, `a WebSocket from ${allowedOrigin} is accepted, got: ${upgradeAllowed.outcome}`).toBe(true);
   expect(upgradeOwn.accepted, `a WebSocket from the site itself is accepted, got: ${upgradeOwn.outcome}`).toBe(true);
   expect(upgradeWithoutOrigin.accepted, `a WebSocket without an Origin is accepted, got: ${upgradeWithoutOrigin.outcome}`).toBe(true);
