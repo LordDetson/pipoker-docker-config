@@ -100,8 +100,10 @@ the sites keep working through the AdGuard rewrite, so closing the ports changes
 QA is only for checking changes before a release. From the home network it opens directly;
 from anywhere else Caddy asks for the login set by `QA_USERNAME` and `QA_PASSWORD_HASH` in `caddy/.env`.
 After the login the browser also gets the cookie `pipoker_qa_login` for 30 days, which lets in the WebSocket
-connections that Safari opens without the login. A new password makes the old cookies useless.
-After changing them: `docker compose -f caddy/compose.yml up -d`.
+connections that Safari opens without the login. Its value is the random secret `QA_COOKIE_TOKEN` (also in
+`caddy/.env`), not the password or its hash, so the cookie never carries the credential; changing the token
+signs every browser out of QA without touching the password.
+After changing any of them: `docker compose -f caddy/compose.yml up -d`.
 Changes to `caddy/config/Caddyfile` need nothing: Caddy notices the new file, for example after a `git pull`,
 and reloads it without dropping connections.
 
