@@ -25,7 +25,8 @@ concurrency:
 jobs:
   qa:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # The whole suite takes QA about half an hour from the internet (the local copy needs 13 minutes)
+    timeout-minutes: 60
     env:
       BASE_URL: ${{ inputs.url || 'https://qa.pipoker.app' }}
       QA_USERNAME: ${{ secrets.QA_USERNAME }}
