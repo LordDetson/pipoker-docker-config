@@ -25,7 +25,8 @@ concurrency:
 jobs:
   qa:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # The whole suite takes QA about half an hour from the internet (the local copy needs 13 minutes)
+    timeout-minutes: 60
     env:
       BASE_URL: ${{ inputs.url || 'https://qa.pipoker.app' }}
       QA_USERNAME: ${{ secrets.QA_USERNAME }}
@@ -54,6 +55,10 @@ jobs:
       BASE_URL: http://prod.localhost
       APP_REF: ${{ inputs.app_ref }}
       WEB_REF: ${{ inputs.web_ref }}
+      # The local backend closes a room nobody acts in after this long instead of the 30 minutes QA and PROD wait,
+      # so the closing can be watched in a test (see e2e/tests/features-idle-room.spec.ts)
+      ROOM_IDLE_SECONDS: 90
+      ROOM_IDLE_CHECK_SECONDS: 10
     steps:
       - uses: actions/checkout@v4
 
@@ -97,14 +102,17 @@ jobs:
           printf 'PROD_DOMAIN=http://prod.localhost\nQA_DOMAIN=http://qa.localhost\nQA_USERNAME=test\nQA_COOKIE_TOKEN=test\n' > caddy/.env
           echo "QA_PASSWORD_HASH='$(docker run --rm caddy:2-alpine caddy hash-password --plaintext test)'" >> caddy/.env
           echo "127.0.0.1 prod.localhost" | sudo tee -a /etc/hosts
-          # The backend also logs how each connection closed and which messages arrived, for the presence checks
-          cat > compose.local.yml <<'EOF'
+          # The backend also logs how each connection closed and which messages arrived, for the presence checks,
+          # and closes idle rooms after ROOM_IDLE_SECONDS (see above)
+          cat > compose.local.yml <<EOF
           services:
             backend:
               environment:
                 SPRING_APPLICATION_JSON: >-
                   {"logging.level.org.springframework.web.socket.handler.LoggingWebSocketHandlerDecorator": "DEBUG",
-                  "logging.level.org.springframework.web.socket.messaging.WebSocketAnnotationMethodMessageHandler": "DEBUG"}
+                  "logging.level.org.springframework.web.socket.messaging.WebSocketAnnotationMethodMessageHandler": "DEBUG",
+                  "room.idle-timeout": "${ROOM_IDLE_SECONDS}s",
+                  "room.idle-check-interval": "${ROOM_IDLE_CHECK_SECONDS}s"}
           EOF
           docker network create pipoker-edge
           docker compose --env-file prod.env -f compose.yml -f compose.local.yml up -d --quiet-pull
