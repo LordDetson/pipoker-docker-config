@@ -352,7 +352,7 @@ test('a long room name in a narrow window makes the header compact without anyth
     await alice.page.getByTitle('Menu').click();
     await expect(alice.page.locator('.settings-dropdown .dropdown-item[lang=ru]')).toBeVisible();
     await expect(alice.page.locator('.settings-dropdown #switch')).toBeVisible();
-    await expect(alice.page.locator('.settings-dropdown .support-item')).toHaveAttribute('href', 'https://boosty.to/detson');
+    await expect(alice.page.locator('.settings-dropdown .support-item')).toHaveAttribute('href', 'https://lorddetson.github.io/');
   } else {
     await expect(alice.page.locator('.language-select .dropdown-toggle')).toBeVisible();
     await expect(alice.page.locator('header #switch')).toBeVisible();
