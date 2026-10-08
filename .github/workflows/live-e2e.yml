@@ -50,7 +50,9 @@ jobs:
 
   local:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    # The suite takes the copy 13 to 26 minutes, but installing the browsers' packages has taken the runner's
+    # apt half an hour by itself (run #49), so the job gets the same hour as the qa job
+    timeout-minutes: 60
     env:
       BASE_URL: http://prod.localhost
       APP_REF: ${{ inputs.app_ref }}
