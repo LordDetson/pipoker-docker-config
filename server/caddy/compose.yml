@@ -3,7 +3,11 @@ name: pipoker-caddy
 
 services:
   caddy:
-    image: caddy:2-alpine
+    # Caddy plus the Cloudflare DNS plugin (see Dockerfile). Built locally so it needn't be published anywhere.
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: pipoker-caddy:local
     restart: unless-stopped
     # Reloads the configuration when the Caddyfile changes, for example after a git pull
     command: caddy run --config /etc/caddy/Caddyfile --adapter caddyfile --watch
@@ -15,6 +19,14 @@ services:
       QA_DOMAIN: ${QA_DOMAIN:?}
       QA_USERNAME: ${QA_USERNAME:?}
       QA_PASSWORD_HASH: ${QA_PASSWORD_HASH:?}
+      # Random secret that becomes the QA login cookie's value (see the Caddyfile): unrelated to the password,
+      # so the cookie never carries the credential and rotating it signs everyone out of QA. Required, to fail
+      # the deploy loudly if it is missing; the Caddyfile is what keeps QA safe when the token is empty (its
+      # login matcher rejects an empty token), so an empty value degrades QA to password-only, never a free pass.
+      QA_COOKIE_TOKEN: ${QA_COOKIE_TOKEN:?}
+      # Cloudflare API token scoped to Zone:DNS:Edit for the pipoker.app zone, used for the DNS-01 challenge
+      # (see the Caddyfile). Left empty, the primary domains fall back to the default challenge.
+      CLOUDFLARE_API_TOKEN: ${CLOUDFLARE_API_TOKEN:-}
     volumes:
       # The folder rather than the file: git replaces a changed file with a new one, and a container that
       # mounts the file alone keeps seeing the old one
@@ -22,7 +34,31 @@ services:
       - caddy-data:/data
       - caddy-config:/config
     networks:
-      - edge
+      edge: {}
+      # Caddy also sits on a tiny private network shared only with cloudflared, on a fixed address. The Caddyfile
+      # trusts exactly that address as a proxy, so the real visitor IP (from CF-Connecting-IP) is honoured for
+      # traffic that arrives through the tunnel, and nothing else can pretend to be the tunnel.
+      tunnel:
+        ipv4_address: 10.89.7.3
+
+  # Cloudflare Tunnel: an outbound-only link to Cloudflare, so the router keeps ports 80/443 closed and the home
+  # IP stays hidden. cloudflared forwards each request to Caddy (see cloudflared/config.yml). The tunnel id is
+  # kept out of the committed config and passed here from CLOUDFLARE_TUNNEL_ID; the credentials file lives in
+  # ./cloudflared (created on the server, never committed). The service is behind the "tunnel" profile, so a
+  # plain `up` leaves it out; bring it up with `--profile tunnel` once the tunnel is created and
+  # CLOUDFLARE_TUNNEL_ID is set (see the server README).
+  cloudflared:
+    image: cloudflare/cloudflared:2026.10.0
+    restart: unless-stopped
+    profiles: [tunnel]
+    command: tunnel --no-autoupdate --config /etc/cloudflared/config.yml run ${CLOUDFLARE_TUNNEL_ID:-}
+    volumes:
+      - ./cloudflared:/etc/cloudflared:ro
+    networks:
+      tunnel:
+        ipv4_address: 10.89.7.2
+    depends_on:
+      - caddy
 
 volumes:
   caddy-data:
@@ -32,3 +68,8 @@ networks:
   edge:
     name: pipoker-edge
     external: true
+  tunnel:
+    name: pipoker-tunnel
+    ipam:
+      config:
+        - subnet: 10.89.7.0/29

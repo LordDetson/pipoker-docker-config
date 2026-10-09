@@ -50,16 +50,19 @@ services:
       STOMP_BROKER_SYSTEM_PASS: ${BROKER_PASSWORD}
       STOMP_BROKER_USER_LOGIN: ${BROKER_USERNAME}
       STOMP_BROKER_USER_PASS: ${BROKER_PASSWORD}
+      # Page origins allowed to open a room WebSocket (see the environment file); unset means any origin
+      STOMP_ALLOWED_ORIGINS: ${STOMP_ALLOWED_ORIGINS:-*}
       MONGODB_HOST: mongodb
       MONGODB_PORT: 27017
       MONGODB_DBNAME: pipoker
       MONGODB_USR: ${MONGODB_APP_USERNAME}
       MONGODB_PASS: ${MONGODB_APP_PASSWORD}
-      # Bug reports from the site become Jira issues once these are set, and are only logged until then
+      # Feedback from the site becomes issues of the Jira project once these are set, and is only logged until then
       PIPOKER_ENV: ${PIPOKER_ENV}
       JIRA_URL: ${JIRA_URL:-}
       JIRA_EMAIL: ${JIRA_EMAIL:-}
       JIRA_API_TOKEN: ${JIRA_API_TOKEN:-}
+      JIRA_PROJECT: ${JIRA_PROJECT:-PIP}
     mem_limit: 768m
     networks:
       default:

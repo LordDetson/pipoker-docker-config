@@ -1,0 +1,24 @@
+# Cloudflare Tunnel ingress. The tunnel makes an outbound connection to Cloudflare, so the home router needs
+# no open ports and the home IP address is never exposed. Cloudflare terminates TLS at its edge and forwards
+# each request down the tunnel to Caddy, which keeps doing everything it did before (routing, the security
+# headers, the QA login, the activity dashboard, the WebSocket and feedback proxying).
+#
+# The tunnel id is not here on purpose: it is passed on the command line from CLOUDFLARE_TUNNEL_ID (see
+# compose.yml), so this file stays the same on every install. The credentials file is written by
+# `cloudflared tunnel create` and placed next to this file (see the server README); it is never committed.
+credentials-file: /etc/cloudflared/credentials.json
+
+# Reach Caddy over HTTPS so it doesn't answer with its HTTP->HTTPS redirect. originServerName makes cloudflared
+# send the real host name as the TLS server name, so Caddy serves that domain's certificate and cloudflared can
+# verify it against the public authorities — no "skip verify" anywhere.
+ingress:
+  - hostname: pipoker.app
+    service: https://caddy:443
+    originRequest:
+      originServerName: pipoker.app
+  - hostname: qa.pipoker.app
+    service: https://caddy:443
+    originRequest:
+      originServerName: qa.pipoker.app
+  # Anything else that somehow reaches the tunnel gets a plain 404 instead of being proxied.
+  - service: http_status:404

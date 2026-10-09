@@ -3,17 +3,71 @@
 {
 	servers {
 		protocols h1 h2
+		# pipoker.app and qa.pipoker.app reach Caddy two ways, and both put a proxy in front of the visitor:
+		# through the Cloudflare Tunnel the connecting address is cloudflared (10.89.7.2, see caddy/compose.yml);
+		# while a name is still a proxied Cloudflare DNS record instead, it is one of Cloudflare's own addresses.
+		# Trust both and take the real visitor from CF-Connecting-IP, so that {client_ip} (used for the QA login
+		# test and for X-Forwarded-For below) is the visitor, not the proxy. A peer that is neither — a home
+		# visitor reaching the server directly, or anyone hitting the origin to spoof the header — is not trusted,
+		# so its CF-Connecting-IP is ignored. Update the Cloudflare list if it ever changes: https://www.cloudflare.com/ips
+		trusted_proxies static 10.89.7.2/32 173.245.48.0/20 103.21.244.0/22 103.22.200.0/22 103.31.4.0/22 141.101.64.0/18 108.162.192.0/18 190.93.240.0/20 188.114.96.0/20 197.234.240.0/22 198.41.128.0/17 162.158.0.0/15 104.16.0.0/13 104.24.0.0/14 172.64.0.0/13 131.0.72.0/22 2400:cb00::/32 2606:4700::/32 2803:f800::/32 2405:b500::/32 2405:8100::/32 2a06:98c0::/29 2c0f:f248::/32
+		client_ip_headers CF-Connecting-IP
+	}
+}
+
+# Certificate issuance. The domains (pipoker.app, qa.pipoker.app) are issued with a DNS-01 challenge through
+# Cloudflare, so renewal keeps working even though the domains are proxied by Cloudflare — an HTTP-01 or
+# TLS-ALPN-01 challenge can't reach the origin through the proxy or the tunnel. CLOUDFLARE_API_TOKEN is scoped
+# to Zone:DNS:Edit for the pipoker.app zone; while it's empty, every domain uses the default challenge.
+(cf-tls) {
+	tls {
+		issuer acme {
+			dns cloudflare {env.CLOUDFLARE_API_TOKEN}
+			resolvers 1.1.1.1
+		}
+		issuer acme
+	}
+}
+
+# The security headers every page of the site carries, put on by the reverse proxy in front of the web server.
+# The Content-Security-Policy is the strict one enforced across both environments; the rest harden the browser
+# further. The two environments apply this the same way, except that QA keeps it off its /grafana dashboard,
+# which reverse-proxies Grafana and ships its own headers (see the QA block); PROD runs no Grafana, so there the
+# headers cover every address, including unknown ones like /grafana that just fall through to the app's page.
+# worker-src 'self' blob: — the app runs its ping timer in a Worker built from a blob: URL (so a background tab
+# can't throttle it); without the directive it would fall back to script-src and be blocked.
+(security-headers) {
+	header {
+		Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'; worker-src 'self' blob:; manifest-src 'self'; frame-ancestors 'none'; base-uri 'self'; object-src 'none'; form-action 'self'"
+		# Keep the browser on HTTPS for a year. The .app zone is already in the HSTS preload list, so this only
+		# reaffirms it; includeSubDomains covers qa. (No "preload" directive until we're sure we never want HTTP.)
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		# Don't let the browser guess a response's type against its declared one
+		X-Content-Type-Options nosniff
+		# Nobody may frame the site, so a room can't be put in a hidden iframe to steal clicks on the votes
+		X-Frame-Options DENY
+		# Send the full URL only to our own origin, just the origin to others
+		Referrer-Policy strict-origin-when-cross-origin
+		# Switch off browser features PiPoker never uses, so a compromised page can't reach for them
+		Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
 	}
 }
 
 (pipoker) {
-	# The web client connects to the backend on the same domain: the rooms over a WebSocket, bug reports over HTTP.
-	# Caddy tells the backend the browser's address in X-Forwarded-For, which bug reports are limited by.
+	# The web client connects to the backend on the same domain: the rooms over a WebSocket, feedback over HTTP.
+	# Feedback is rate-limited per address, so the backend must see the real visitor. {client_ip} is that
+	# visitor: Cloudflare's address resolved back to CF-Connecting-IP for trusted Cloudflare peers (see the
+	# global trusted_proxies), or the direct connecting address otherwise. Setting X-Forwarded-For to it
+	# overrides whatever the client sent, so the per-address limit can't be dodged with a made-up header.
 	handle /ws* {
-		reverse_proxy {args[0]}-backend:8080
+		reverse_proxy {args[0]}-backend:8080 {
+			header_up X-Forwarded-For {client_ip}
+		}
 	}
 	handle /api/* {
-		reverse_proxy {args[0]}-backend:8080
+		reverse_proxy {args[0]}-backend:8080 {
+			header_up X-Forwarded-For {client_ip}
+		}
 	}
 	handle {
 		reverse_proxy {args[0]}-web:80
@@ -21,30 +75,48 @@
 }
 
 {$PROD_DOMAIN} {
+	import cf-tls
+	# PROD runs no Grafana, so every address — the app, its bundles and any unknown path — gets the security headers.
+	import security-headers
 	import pipoker prod
 }
 
 # QA is for testing before a release: from outside the home network it asks for a login and password.
 # Safari, on the iPhone too, leaves that login out of a WebSocket connection, so a room couldn't connect over one.
 # A browser that has logged in therefore also gets a cookie, which every browser sends with a WebSocket connection,
-# and the cookie lets it in without the login. Its value is the password hash: only a browser that knew
-# the password gets it, and a new password makes the old cookies useless.
+# and the cookie lets it in without the login. Its value is a random secret (QA_COOKIE_TOKEN), not the password
+# or its hash, so the cookie never carries the credential; rotating the token signs every browser out of QA
+# without touching the password.
 {$QA_DOMAIN} {
+	import cf-tls
+	# Ask for the login unless the visitor is on the home network or already carries the cookie. The test is on
+	# {client_ip} (the real visitor from the global trusted_proxies / CF-Connecting-IP), not on the connecting
+	# address: through the tunnel the connecting address is always cloudflared, a private one, so a test on it
+	# would wave everyone in. A home visitor's real address is a private one, so they still skip the login.
+	# The cookie check is an exact match that also rejects an empty token. Caddy runs with --watch, so a git
+	# pull can reload this file before `docker compose up -d` has put QA_COOKIE_TOKEN into the container's
+	# environment; in that gap the token reads empty. An empty token must never let anyone in, so the
+	# expression demands a non-empty token AND the exact value — otherwise QA just falls back to the password.
 	@login {
-		not remote_ip private_ranges
-		not header Cookie *pipoker_qa_login={$QA_PASSWORD_HASH}*
+		not client_ip private_ranges
+		expression `{env.QA_COOKIE_TOKEN} == "" || {http.request.cookie.pipoker_qa_login} != {env.QA_COOKIE_TOKEN}`
 	}
-	# A route keeps this order: Caddy would otherwise set the header before checking the login,
-	# and the cookie would go out with the request for the login too
+	# A route keeps this order: Caddy would otherwise set the headers before checking the login,
+	# and the cookie would go out with the request for the login too.
 	route {
 		basic_auth @login {
 			{$QA_USERNAME} {$QA_PASSWORD_HASH}
 		}
-		header @login Set-Cookie "pipoker_qa_login={$QA_PASSWORD_HASH}; Path=/; Max-Age=2592000; Secure; HttpOnly; SameSite=Lax"
-		# The activity dashboard of both environments (see ../../monitoring), behind the same login
+		header @login Set-Cookie "pipoker_qa_login={$QA_COOKIE_TOKEN}; Path=/; Max-Age=2592000; Secure; HttpOnly; SameSite=Lax"
+		# The activity dashboard of both environments (see ../../monitoring), behind the same login. Grafana ships
+		# its own security headers, so this path is handled on its own and does not get ours; every other address
+		# falls through to the security headers and the app.
 		handle /grafana* {
 			reverse_proxy pipoker-grafana:3000
 		}
-		import pipoker qa
+		handle {
+			import security-headers
+			import pipoker qa
+		}
 	}
 }

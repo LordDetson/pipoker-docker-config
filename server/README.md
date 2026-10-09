@@ -21,15 +21,18 @@ The server pulls new versions itself, so GitHub never connects to it:
 ## Requirements
 
 - Linux with Docker and the compose plugin, switched on all the time.
-- A public IP address. Compare the WAN address in the router settings with the one shown by https://2ip.ru;
-  if they differ, the provider uses CGNAT and the server is not reachable from the internet
-  (most providers give a public, often dynamic, address on request).
-- Ports 80 and 443 forwarded on the router to the server. Caddy needs them for the HTTPS certificates.
+- A Cloudflare account (free) with the site's domain `pipoker.app` on it. Requests reach the server through a
+  Cloudflare Tunnel (see "How requests reach the server" below), an outbound connection, so the server needs
+  no public IP of its own and no forwarded ports, and its home address stays hidden.
 
 ## Setup
 
-1. Register two subdomains on https://www.duckdns.org, for example `pipoker` and `pipoker-qa`,
-   and note the token.
+1. Put the domain on Cloudflare. `pipoker.app` is registered at hoster.by with its DNS on Cloudflare (free
+   plan). The tunnel creates the `pipoker.app` and `qa.pipoker.app` records itself (see "How requests reach
+   the server"), each a proxied CNAME to the tunnel, so there is nothing to point at the server by hand.
+   Set `CLOUDFLARE_API_TOKEN` in `caddy/.env` (see that file) so Caddy renews the certificates with a DNS-01
+   challenge, which works behind the proxy. At home the router doesn't loop the public address back, so the
+   home DNS (AdGuard) rewrites each domain to the server's LAN address.
 2. Install Docker:
    ```
    curl -fsSL https://get.docker.com | sudo sh
@@ -45,22 +48,63 @@ The server pulls new versions itself, so GitHub never connects to it:
    ./update
    docker compose -f caddy/compose.yml up -d
    ```
-4. Add the cron jobs (`crontab -e`): updates every 2 minutes and the DuckDNS address every 5 minutes,
-   because a home IP address can change.
+4. Add the cron job (`crontab -e`) that pulls new images every 2 minutes:
    ```
    */2 * * * * $HOME/pipoker-docker-config/server/update >> $HOME/pipoker-update.log 2>&1
-   */5 * * * * curl -fsS "https://www.duckdns.org/update?domains=pipoker,pipoker-qa&token=<token>" > /dev/null
    ```
-5. In both pipoker-app and pipoker-web on GitHub create the environment `prod`
+5. Set up the Cloudflare Tunnel so requests can reach the server — see "How requests reach the server" below.
+6. In both pipoker-app and pipoker-web on GitHub create the environment `prod`
    (Settings → Environments) with yourself as a required reviewer.
+
+## How requests reach the server
+
+Requests arrive through a **Cloudflare Tunnel**: `cloudflared` makes an *outbound* connection to Cloudflare and
+every request comes back through it, so the router needs no open ports and the home IP is never published. Caddy
+still does all the routing, the security headers, the QA login and the dashboard — the tunnel only carries the
+traffic in. It needs no paid plan and no Zero Trust seat; the free account is enough.
+
+Set it up once, from the `server` directory (Docker is already installed, so `cloudflared` runs from its image
+and nothing is added to the host):
+
+```
+cd ~/pipoker-docker-config/server
+D='docker run --rm --user root -v '"$PWD"'/caddy/cloudflared:/etc/cloudflared -e TUNNEL_ORIGIN_CERT=/etc/cloudflared/cert.pem cloudflare/cloudflared:2026.10.0'
+
+# 1. Authorise with your Cloudflare account. It prints a link; open it and pick the pipoker.app zone.
+$D tunnel login            # (prepend `-it`: docker run -it ... for this one, so the link shows)
+
+# 2. Create the tunnel, then give its credentials the fixed name the config expects.
+$D tunnel create pipoker   # note the tunnel id it prints
+mv caddy/cloudflared/<TUNNEL_ID>.json caddy/cloudflared/credentials.json
+
+# 3. In caddy/.env set CLOUDFLARE_TUNNEL_ID=<TUNNEL_ID> and COMPOSE_PROFILES=tunnel (the latter turns the
+#    cloudflared service on for every compose command here, so it keeps running after a reboot or a manual
+#    bring-up once the ports are closed), then start the tunnel.
+docker compose -f caddy/compose.yml up -d
+
+# 4. Point the domains at the tunnel, one at a time, checking each from outside the home network before the next
+#    (this creates or replaces their DNS records). Start with QA, then PROD.
+$D tunnel route dns --overwrite-dns pipoker qa.pipoker.app
+$D tunnel route dns --overwrite-dns pipoker pipoker.app
+```
+
+`credentials.json` and `cert.pem` are secrets and are git-ignored; only `cloudflared/config.yml` is tracked, and
+it carries no id, so it is the same on every install. Caddy trusts the tunnel's fixed address `10.89.7.2` as a
+proxy (see the Caddyfile), so the real visitor address still reaches the backend through `CF-Connecting-IP`.
+
+Once both domains answer through the tunnel, keep the router's ports 80 and 443 closed to the internet: the
+tunnel doesn't need them, and with them closed there is no way to reach the server around Cloudflare. At home
+the sites keep working through the AdGuard rewrite, so closing the ports changes nothing there.
 
 ## QA access
 
 QA is only for checking changes before a release. From the home network it opens directly;
 from anywhere else Caddy asks for the login set by `QA_USERNAME` and `QA_PASSWORD_HASH` in `caddy/.env`.
 After the login the browser also gets the cookie `pipoker_qa_login` for 30 days, which lets in the WebSocket
-connections that Safari opens without the login. A new password makes the old cookies useless.
-After changing them: `docker compose -f caddy/compose.yml up -d`.
+connections that Safari opens without the login. Its value is the random secret `QA_COOKIE_TOKEN` (also in
+`caddy/.env`), not the password or its hash, so the cookie never carries the credential; changing the token
+signs every browser out of QA without touching the password.
+After changing any of them: `docker compose -f caddy/compose.yml up -d`.
 Changes to `caddy/config/Caddyfile` need nothing: Caddy notices the new file, for example after a `git pull`,
 and reloads it without dropping connections.
 
@@ -107,12 +151,14 @@ Prometheus reads its configuration and rules when it starts, so after a change t
 `docker compose -f monitoring/compose.yml restart prometheus`. The rules are tested with
 `promtool test rules tests/capacity.test.yml` (in `monitoring/`; CI runs it).
 
-## Bug reports
+## Feedback
 
-People report bugs from the site without signing up: the backend turns each report into a Bug in the Jira project
-PIP with the label `site-bug-report` (and `qa` or `prod`), on behalf of the owner of an API token. It takes at most
-3 reports an hour from one address and 20 an hour in total, which keeps spam out of Jira. Until the token is set,
-the reports are only written to the backend log (`docker compose --env-file prod.env -f compose.yml logs backend`).
+People send feedback from the site without signing up: a problem, an idea or a review. The backend turns each
+message into an issue of the Jira project `JIRA_PROJECT` (PIP when it isn't set), a problem into a Bug and an idea
+or a review into a Task, labelled `site-feedback`, its kind (`problem`, `idea`, `review`) and `qa` or `prod`, on behalf
+of the owner of an API token. The project needs the issue types Bug and Task. It takes at most 3 messages an hour from
+one address and 20 an hour in total, which keeps spam out of Jira. Until the token is set, the messages are only
+written to the backend log (`docker compose --env-file prod.env -f compose.yml logs backend`).
 
 The token is an Atlassian API token with scopes, limited to creating issues:
 1. https://id.atlassian.com/manage-profile/security/api-tokens → **Create API token with scopes**,
@@ -120,7 +166,8 @@ The token is an Atlassian API token with scopes, limited to creating issues:
 2. In `qa.env` and `prod.env` set `JIRA_EMAIL` to the account's e-mail and `JIRA_API_TOKEN` to the token.
    `JIRA_URL` is the Jira site through Atlassian's API gateway, which scoped tokens require
    (`https://api.atlassian.com/ex/jira/<cloud id>`, the cloud id is at `https://<site>.atlassian.net/_edge/tenant_info`).
-3. `./update` restarts the backends with the token.
+3. `./update` restarts the backends with the token. To file the feedback in another project, add `JIRA_PROJECT=<key>`
+   to both files and run `./update` again.
 
 ## Releasing to PROD
 
@@ -130,7 +177,7 @@ with the commit SHA. A rollback is the same workflow with an older SHA.
 ## Checking an environment
 
 ```
-node smoke-test.mjs https://pipoker-qa.duckdns.org
+node smoke-test.mjs https://qa.pipoker.app
 ```
 creates a room and waits for a room event, which exercises the web proxy, the backend, MongoDB and RabbitMQ.
 
@@ -151,7 +198,7 @@ the full Playwright report is attached to the run.
 The **Monitor PROD** workflow (`.github/workflows/monitor.yml`) runs `./check` against PROD every 5 minutes
 from GitHub, outside the home network: it opens the web client, asks the backend for `/ws/info` and creates
 and deletes a room with `smoke-test.mjs`. So it also notices a switched-off server, a power cut,
-a home internet outage or an outdated DuckDNS address. GitHub may start scheduled runs a few minutes late.
+a home internet outage or the tunnel going down. GitHub may start scheduled runs a few minutes late.
 
 When PROD fails three checks in a row, the workflow opens an issue labelled `outage` (GitHub sends it by email)
 and sends a Telegram message; when PROD works again, it closes the issue and sends another message.

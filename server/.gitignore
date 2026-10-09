@@ -1,3 +1,8 @@
 *.env
 !*.env.example
 .env
+
+# Cloudflare Tunnel credentials, created on the server by `cloudflared tunnel login` and `tunnel create`.
+# These are secrets and must never be committed; only cloudflared/config.yml is tracked.
+caddy/cloudflared/cert.pem
+caddy/cloudflared/*.json
