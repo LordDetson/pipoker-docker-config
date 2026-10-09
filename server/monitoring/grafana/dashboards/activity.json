@@ -713,10 +713,10 @@
       "interval": "1h"
     },
     {
-      "id": 14,
-      "type": "timeseries",
-      "title": "Visits by source, per day",
-      "description": "Start page opens by where people came from: the from parameter of the link (habr, tg, vk, boosty, alternativeto, saashub, producthunt, video, github), otherwise the referring site, otherwise direct. other_link is a from value nobody handed out, other_site a site not in the list",
+      "id": 16,
+      "type": "bargauge",
+      "title": "Visits by source",
+      "description": "Start page opens in the selected period by where people came from: the from parameter of the link (habr, tg, vk, boosty, alternativeto, saashub, producthunt, video, github), otherwise the referring site, otherwise direct. other_link is a from value nobody handed out, other_site a site not in the list",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -726,6 +726,112 @@
         "w": 12,
         "x": 0,
         "y": 28
+      },
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "basic",
+        "valueMode": "color",
+        "showUnfilled": true,
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "text": {}
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 0,
+          "min": 0,
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sort_desc(sum by (source) (increase(pipoker_visits_total{env=\"$env\"}[$__range])) > 0)",
+          "legendFormat": "{{source}}",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "id": 17,
+      "type": "bargauge",
+      "title": "Rooms created by source",
+      "description": "Which channel brings people who go on to create a room, in the selected period",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 28
+      },
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "basic",
+        "valueMode": "color",
+        "showUnfilled": true,
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "text": {}
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 0,
+          "min": 0,
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sort_desc(sum by (source) (increase(pipoker_room_creations_total{env=\"$env\"}[$__range])) > 0)",
+          "legendFormat": "{{source}}",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "id": 14,
+      "type": "timeseries",
+      "title": "Visits by source, per day",
+      "description": "Start page opens by where people came from: the from parameter of the link (habr, tg, vk, boosty, alternativeto, saashub, producthunt, video, github), otherwise the referring site, otherwise direct. other_link is a from value nobody handed out, other_site a site not in the list. A point per finished day; today's visits appear tomorrow",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 36
       },
       "options": {
         "legend": {
@@ -774,7 +880,7 @@
       "id": 15,
       "type": "timeseries",
       "title": "Rooms created by source, per day",
-      "description": "Which channel brings people who go on to create a room",
+      "description": "Which channel brings people who go on to create a room. A point per finished day; today's visits appear tomorrow",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -783,7 +889,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 28
+        "y": 36
       },
       "options": {
         "legend": {
@@ -841,7 +947,7 @@
         "h": 7,
         "w": 24,
         "x": 0,
-        "y": 36
+        "y": 44
       },
       "options": {
         "legend": {
