@@ -1,0 +1,8 @@
+{
+  "name": "pipoker-unavailable-page",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test"
+  }
+}
