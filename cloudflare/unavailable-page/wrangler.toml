@@ -1,0 +1,11 @@
+# The Worker that shows the "temporarily unavailable" page (see worker.js). Deployed by
+# .github/workflows/unavailable-page.yml with the repository secrets CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID.
+name = "pipoker-unavailable-page"
+main = "worker.js"
+compatibility_date = "2026-09-01"
+# No workers.dev address: the Worker only runs in front of the domains below
+workers_dev = false
+
+routes = [
+  { pattern = "qa.pipoker.app/*", zone_name = "pipoker.app" },
+]

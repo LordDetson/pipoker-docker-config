@@ -1,0 +1,53 @@
+name: Unavailable page
+
+# Tests the Cloudflare Worker that shows the "temporarily unavailable" page (cloudflare/unavailable-page) on every
+# change to it, and deploys it to Cloudflare from main. Deploying needs the repository secrets CLOUDFLARE_API_TOKEN
+# (Workers Scripts: Edit for the account, Workers Routes: Edit for the pipoker.app zone) and CLOUDFLARE_ACCOUNT_ID;
+# until they are set, the deploy step is skipped.
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/unavailable-page.yml
+      - cloudflare/unavailable-page/**
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/unavailable-page.yml
+      - cloudflare/unavailable-page/**
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency: unavailable-page
+
+jobs:
+  worker:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: cloudflare/unavailable-page
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npx --yes wrangler@4.140.0 deploy --dry-run --outdir dist
+
+      - name: Deploy
+        if: github.ref == 'refs/heads/main' && env.CLOUDFLARE_API_TOKEN != ''
+        run: npx --yes wrangler@4.140.0 deploy
+
+      - name: Explain the skipped deploy
+        if: github.ref == 'refs/heads/main' && env.CLOUDFLARE_API_TOKEN == ''
+        run: echo "::notice::Not deployed: the secrets CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID are not set"
