@@ -7,13 +7,14 @@
 groups:
   - name: capacity
     rules:
-      # Speed of the home internet connection, as the provider's plan promises it. Everything PiPoker sends and
+      # Speed of the server's way to the internet. Everything PiPoker sends and
       # receives goes through the Cloudflare tunnel over this connection, shared with everything else at home.
-      # The plan of the server (MTS, 200 Mbit/s); change them with the plan.
+      # The plan is 200 Mbit/s (MTS), but the server reaches the modem over a 100 Mbit/s cable (and Wi-Fi),
+      # so the narrower link is the limit. Change them when the plan or the link changes.
       - record: pipoker:uplink_capacity:bits_per_second
-        expr: vector(200e6)
+        expr: vector(100e6)
       - record: pipoker:downlink_capacity:bits_per_second
-        expr: vector(200e6)
+        expr: vector(100e6)
 
       # Processor: the share of time not idle and not waiting for the disk, over all cores
       - record: pipoker:resource_usage:ratio
