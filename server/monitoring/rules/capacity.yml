@@ -1,0 +1,164 @@
+# Is the server strong enough for the load PiPoker has now? Each resource that can run out is measured as a share
+# of what the server has, from 0 to 1 (pipoker:resource_usage:ratio), and the headroom is what is left of the
+# busiest one. The alerts fire while the load is still approaching a limit, so there is time to act before people
+# notice: Alertmanager sends them to Telegram and by email (see ../alertmanager).
+#
+# The rules are tested by tests/capacity.test.yml: promtool test rules tests/capacity.test.yml
+groups:
+  - name: capacity
+    rules:
+      # Speed of the home internet connection, as the provider's plan promises it. Everything PiPoker sends and
+      # receives goes through the Cloudflare tunnel over this connection, shared with everything else at home.
+      # Change them to the speeds of the plan.
+      - record: pipoker:uplink_capacity:bits_per_second
+        expr: vector(100e6)
+      - record: pipoker:downlink_capacity:bits_per_second
+        expr: vector(100e6)
+
+      # Processor: the share of time not idle and not waiting for the disk, over all cores
+      - record: pipoker:resource_usage:ratio
+        expr: 1 - sum(rate(node_cpu_seconds_total{mode=~"idle|iowait"}[5m])) / count(node_cpu_seconds_total{mode="idle"})
+        labels:
+          resource: cpu
+      # Memory: what the system could not give to a new program without swapping
+      - record: pipoker:resource_usage:ratio
+        expr: max(1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)
+        labels:
+          resource: memory
+      - record: pipoker:resource_usage:ratio
+        expr: max(1 - node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"})
+        labels:
+          resource: disk
+      # Internet: what the server sends and receives over its network card, against the speed of the connection.
+      # The virtual interfaces of Docker only carry traffic between containers on the server itself.
+      - record: pipoker:network_transmit:bits_per_second
+        expr: sum(rate(container_network_transmit_bytes_total{id="/", interface!~"lo|veth.*|br-.*|docker.*|ifb.*"}[5m])) * 8
+      - record: pipoker:network_receive:bits_per_second
+        expr: sum(rate(container_network_receive_bytes_total{id="/", interface!~"lo|veth.*|br-.*|docker.*|ifb.*"}[5m])) * 8
+      - record: pipoker:resource_usage:ratio
+        expr: pipoker:network_transmit:bits_per_second / scalar(pipoker:uplink_capacity:bits_per_second)
+        labels:
+          resource: uplink
+      - record: pipoker:resource_usage:ratio
+        expr: pipoker:network_receive:bits_per_second / scalar(pipoker:downlink_capacity:bits_per_second)
+        labels:
+          resource: downlink
+      # PROD backend: the objects that survive garbage collection, against the most the heap can hold. Unlike the
+      # used heap, which grows until the next collection whatever the load, this grows only with rooms and people.
+      - record: pipoker:resource_usage:ratio
+        expr: max(jvm_gc_live_data_size_bytes{env="prod"} / jvm_gc_max_data_size_bytes{env="prod"})
+        labels:
+          resource: prod_heap
+      # Containers with a memory limit (the backends, the monitoring): Docker stops a container that reaches it
+      - record: pipoker:container_memory_usage:ratio
+        expr: max by (name) (container_memory_working_set_bytes / (container_spec_memory_limit_bytes > 0))
+      - record: pipoker:resource_usage:ratio
+        expr: max(pipoker:container_memory_usage:ratio)
+        labels:
+          resource: container_memory
+
+      - record: pipoker:headroom:ratio
+        expr: 1 - max(pipoker:resource_usage:ratio)
+
+  - name: capacity-alerts
+    rules:
+      - alert: ProcessorBusy
+        expr: pipoker:resource_usage:ratio{resource="cpu"} > 0.8
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: Процессор сервера загружен на {{ $value | humanizePercentage }}
+          description: Уже 15 минут занято больше 80% процессора. При полной загрузке комнаты начнут отвечать с задержкой. Посмотрите на панели «PiPoker capacity», какой контейнер занимает процессор.
+
+      - alert: MemoryLow
+        expr: pipoker:resource_usage:ratio{resource="memory"} > 0.9
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: Память сервера занята на {{ $value | humanizePercentage }}
+          description: Уже 10 минут свободно меньше 10% памяти. Когда она кончится, система начнёт останавливать программы, в том числе PiPoker.
+
+      - alert: DiskAlmostFull
+        expr: pipoker:resource_usage:ratio{resource="disk"} > 0.85
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: Диск сервера заполнен на {{ $value | humanizePercentage }}
+          description: Свободно меньше 15% диска. На нём базы данных QA и PROD и история метрик; когда место кончится, MongoDB перестанет записывать комнаты.
+
+      - alert: DiskFillsUp
+        expr: predict_linear(node_filesystem_avail_bytes{mountpoint="/"}[1d], 7 * 86400) < 0
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: Диск сервера заполнится в течение недели
+          description: Если место будет уходить так же, как за последние сутки, через неделю диск будет полон. Свободно сейчас {{ with query "max(node_filesystem_avail_bytes{mountpoint=\"/\"})" }}{{ . | first | value | humanize1024 }}B{{ end }}.
+
+      - alert: UplinkBusy
+        expr: pipoker:resource_usage:ratio{resource="uplink"} > 0.7
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: Отдача интернета на сервере занята на {{ $value | humanizePercentage }}
+          description: Уже 15 минут сервер отправляет больше 70% того, что позволяет тариф. Страницы начнут грузиться медленно, а голоса приходить с задержкой.
+
+      - alert: DownlinkBusy
+        expr: pipoker:resource_usage:ratio{resource="downlink"} > 0.7
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: Входящий интернет на сервере занят на {{ $value | humanizePercentage }}
+          description: Уже 15 минут сервер получает больше 70% того, что позволяет тариф.
+
+      - alert: ProdHeapFull
+        expr: pipoker:resource_usage:ratio{resource="prod_heap"} > 0.85
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: Память сервера PROD заполнена комнатами на {{ $value | humanizePercentage }}
+          description: После сборки мусора в памяти бэкенда PROD остаётся больше 85% того, что он может держать. Ещё немного, и он будет тратить время на сборку мусора, а потом упадёт с OutOfMemoryError. Поможет поднять mem_limit бэкенда в compose.yml.
+
+      - alert: ContainerMemoryNearLimit
+        expr: pipoker:container_memory_usage:ratio > 0.9
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: Контейнер {{ $labels.name }} занял {{ $value | humanizePercentage }} своей памяти
+          description: Docker остановит контейнер, когда тот дойдёт до своего mem_limit. Поможет поднять mem_limit в его compose-файле.
+
+      # Spring hands the frames of the browsers and the events from RabbitMQ to these thread pools. Tasks that wait
+      # in their queues mean the backend no longer keeps up, and votes reach the table late.
+      - alert: ProdMessagesQueued
+        expr: max(executor_queued_tasks{env="prod", name=~"clientInboundChannelExecutor|clientOutboundChannelExecutor|brokerChannelExecutor"}) > 50
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: Бэкенд PROD не успевает обрабатывать сообщения комнат
+          description: В очереди ждут {{ $value }} сообщений уже 3 минуты. Голоса и события доходят до людей с задержкой.
+
+      - alert: ProcessorOverheated
+        expr: max(node_hwmon_temp_celsius{chip=~".*(coretemp|k10temp).*"}) > 90
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: Процессор сервера нагрелся до {{ $value }} °C
+          description: При такой температуре процессор снижает частоту, и сервер становится слабее. Проверьте, не закрыты ли вентиляционные отверстия ноутбука и не забиты ли пылью.
+
+      - alert: CapacityMetricsMissing
+        expr: up{job=~"node|cadvisor"} == 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: Мониторинг нагрузки не получает данные ({{ $labels.job }})
+          description: Prometheus не может собрать метрики {{ $labels.job }} уже 10 минут, поэтому оповещения о нагрузке не работают. Проверьте docker compose -f monitoring/compose.yml ps на сервере.

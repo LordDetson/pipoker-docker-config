@@ -1,0 +1,128 @@
+# promtool test rules tests/capacity.test.yml (from server/monitoring; CI runs it, see .github/workflows/test.yml)
+rule_files:
+  - ../rules/capacity.yml
+
+evaluation_interval: 30s
+
+tests:
+  # Two cores, 90% busy; memory and disk half used; the PROD backend holds a quarter of its heap
+  - interval: 30s
+    input_series:
+      - series: node_cpu_seconds_total{cpu="0", mode="idle"}
+        values: 0+3x60
+      - series: node_cpu_seconds_total{cpu="1", mode="idle"}
+        values: 0+3x60
+      - series: node_cpu_seconds_total{cpu="0", mode="user"}
+        values: 0+27x60
+      - series: node_cpu_seconds_total{cpu="1", mode="user"}
+        values: 0+27x60
+      - series: node_memory_MemTotal_bytes
+        values: 8e9x60
+      - series: node_memory_MemAvailable_bytes
+        values: 4e9x60
+      - series: node_filesystem_size_bytes{mountpoint="/"}
+        values: 100e9x60
+      - series: node_filesystem_avail_bytes{mountpoint="/"}
+        values: 50e9x60
+      - series: jvm_gc_live_data_size_bytes{env="prod"}
+        values: 100e6x60
+      - series: jvm_gc_max_data_size_bytes{env="prod"}
+        values: 400e6x60
+      # 1.25 MB/s out = 10 Mbit/s, a tenth of the 100 Mbit/s connection
+      - series: container_network_transmit_bytes_total{id="/", interface="enp2s0"}
+        values: 0+37.5e6x60
+      # Traffic between containers stays on the server and is not counted
+      - series: container_network_transmit_bytes_total{id="/", interface="veth1a2b3c"}
+        values: 0+100e6x60
+    promql_expr_test:
+      - expr: pipoker:resource_usage:ratio
+        eval_time: 20m
+        exp_samples:
+          - labels: pipoker:resource_usage:ratio{resource="cpu"}
+            value: 0.9
+          - labels: pipoker:resource_usage:ratio{resource="memory"}
+            value: 0.5
+          - labels: pipoker:resource_usage:ratio{resource="disk"}
+            value: 0.5
+          - labels: pipoker:resource_usage:ratio{resource="prod_heap"}
+            value: 0.25
+          - labels: pipoker:resource_usage:ratio{resource="uplink"}
+            value: 0.1
+      # Headroom is what the busiest resource, the processor, leaves
+      - expr: round(pipoker:headroom:ratio * 100)
+        eval_time: 20m
+        exp_samples:
+          - value: 10
+    alert_rule_test:
+      # The processor has been busy for 15 minutes only once the 5-minute rate has seen it for that long
+      - alertname: ProcessorBusy
+        eval_time: 10m
+      - alertname: ProcessorBusy
+        eval_time: 25m
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              resource: cpu
+            exp_annotations:
+              summary: Процессор сервера загружен на 90%
+              description: Уже 15 минут занято больше 80% процессора. При полной загрузке комнаты начнут отвечать с задержкой. Посмотрите на панели «PiPoker capacity», какой контейнер занимает процессор.
+      - alertname: MemoryLow
+        eval_time: 25m
+      - alertname: DiskAlmostFull
+        eval_time: 25m
+
+  # A container close to its memory limit, and one without a limit, which is never counted
+  - interval: 30s
+    input_series:
+      - series: container_memory_working_set_bytes{name="pipoker-prod-backend-1"}
+        values: 750e6x40
+      - series: container_spec_memory_limit_bytes{name="pipoker-prod-backend-1"}
+        values: 800e6x40
+      - series: container_memory_working_set_bytes{name="pipoker-prod-mongodb-1"}
+        values: 2e9x40
+      - series: container_spec_memory_limit_bytes{name="pipoker-prod-mongodb-1"}
+        values: 0x40
+    alert_rule_test:
+      - alertname: ContainerMemoryNearLimit
+        eval_time: 15m
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              name: pipoker-prod-backend-1
+            exp_annotations:
+              summary: Контейнер pipoker-prod-backend-1 занял 93.75% своей памяти
+              description: Docker остановит контейнер, когда тот дойдёт до своего mem_limit. Поможет поднять mem_limit в его compose-файле.
+
+  # The disk loses 10 GB a day with 50 GB left: full in five days
+  - interval: 1h
+    input_series:
+      - series: node_filesystem_avail_bytes{mountpoint="/"}
+        values: 60e9-0.4166666e9x48
+    alert_rule_test:
+      - alertname: DiskFillsUp
+        eval_time: 26h
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              mountpoint: /
+            exp_annotations:
+              summary: Диск сервера заполнится в течение недели
+              description: Если место будет уходить так же, как за последние сутки, через неделю диск будет полон. Свободно сейчас 45.79GiB.
+
+  - interval: 1m
+    input_series:
+      - series: up{job="cadvisor", instance="cadvisor:8080"}
+        values: 0x20
+      - series: up{job="node", instance="node-exporter:9100"}
+        values: 1x20
+    alert_rule_test:
+      - alertname: CapacityMetricsMissing
+        eval_time: 15m
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              job: cadvisor
+              instance: cadvisor:8080
+            exp_annotations:
+              summary: Мониторинг нагрузки не получает данные (cadvisor)
+              description: Prometheus не может собрать метрики cadvisor уже 10 минут, поэтому оповещения о нагрузке не работают. Проверьте docker compose -f monitoring/compose.yml ps на сервере.

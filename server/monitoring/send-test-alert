@@ -1,0 +1,23 @@
+#!/bin/bash
+# Sends a test alert to Telegram and by email, to check the settings in .env, and shows how sending went.
+# The "back to normal" message follows five minutes later.
+set -euo pipefail
+
+cd "$(dirname "$0")"
+
+since=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+# A name of its own each time, so it is a new alert sent at once rather than a repeat of the previous test
+docker compose exec alertmanager amtool --alertmanager.url=http://localhost:9093 alert add \
+	"alertname=\"PiPokerTest$(date +%s)\"" 'severity="test"' \
+	--annotation='summary="Проверка оповещений PiPoker"' \
+	--annotation='description="Если вы читаете это, оповещения о нагрузке доходят."'
+
+echo "Sent. Alertmanager passes it on within a minute..."
+sleep 45
+# Telegram errors carry the bot token in the address, which must not be shown
+problems=$(docker compose logs --since "$since" alertmanager 2>&1 | grep -E 'level=(WARN|ERROR)' | sed -E 's/bot[0-9]+:[A-Za-z0-9_-]+/bot<token>/g' || true)
+if [ -n "$problems" ]; then
+	echo "$problems"
+	exit 1
+fi
+echo "Telegram and email accepted it."

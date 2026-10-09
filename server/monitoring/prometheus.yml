@@ -1,6 +1,16 @@
-# Collects the activity metrics of both backends (see RoomActivity in pipoker-app) over the shared network.
+# Collects the activity metrics of both backends (see RoomActivity in pipoker-app) and the load of the server
+# itself over the shared network, and checks the capacity rules in ./rules.
 global:
   scrape_interval: 30s
+  evaluation_interval: 30s
+
+rule_files:
+  - /etc/prometheus/rules/*.yml
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: [alertmanager:9093]
 
 scrape_configs:
   - job_name: pipoker
@@ -12,3 +22,38 @@ scrape_configs:
       - targets: [qa-backend:8081]
         labels:
           env: qa
+
+  # The server as a whole: processor, memory, disk, temperature. Only what the capacity rules and the dashboard
+  # use is kept, so two years of history stay small.
+  - job_name: node
+    static_configs:
+      - targets: [node-exporter:9100]
+    metric_relabel_configs:
+      - source_labels: [__name__]
+        regex: node_(cpu_seconds_total|load(1|5|15)|memory_(MemTotal|MemAvailable|SwapTotal|SwapFree)_bytes|filesystem_(avail|size)_bytes|pressure_(cpu_waiting|memory_waiting|io_waiting)_seconds_total|hwmon_temp_celsius|hwmon_temp_crit_celsius|boot_time_seconds)
+        action: keep
+      # Only the root file system, which holds Docker and so every database and the history of these metrics
+      - source_labels: [__name__, mountpoint]
+        regex: node_filesystem_.+;/.+
+        action: drop
+
+  # Every container: how much processor and memory it takes against its limit. The server's own network
+  # interfaces come as the root cgroup (id="/"): everything PiPoker sends to and gets from the internet goes
+  # through them, by way of the Cloudflare tunnel.
+  - job_name: cadvisor
+    static_configs:
+      - targets: [cadvisor:8080]
+    metric_relabel_configs:
+      - source_labels: [__name__]
+        regex: container_(cpu_usage_seconds_total|memory_working_set_bytes|spec_memory_limit_bytes|network_receive_bytes_total|network_transmit_bytes_total)
+        action: keep
+      # Of the system cgroups only the root one is kept, and only for its network: its processor and memory are
+      # the server's, which the node job already has
+      - source_labels: [name, id]
+        regex: ;/.+
+        action: drop
+      - source_labels: [__name__, id]
+        regex: container_(cpu|memory|spec)_.+;/
+        action: drop
+      - regex: image|container_label_.+
+        action: labeldrop
