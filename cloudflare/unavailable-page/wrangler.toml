@@ -7,5 +7,6 @@ compatibility_date = "2026-09-01"
 workers_dev = false
 
 routes = [
+  { pattern = "pipoker.app/*", zone_name = "pipoker.app" },
   { pattern = "qa.pipoker.app/*", zone_name = "pipoker.app" },
 ]
