@@ -1,0 +1,25 @@
+{{/* Messages of the alerts in ../rules, in Russian: summary is what happened, description why it matters.
+     ./start fills in the address of the dashboard. */}}
+
+{{ define "pipoker.dashboard" }}${GRAFANA_ROOT_URL}d/pipoker-capacity{{ end }}
+
+{{ define "pipoker.subject" -}}
+{{ if eq .Status "firing" }}PiPoker: {{ .CommonAnnotations.summary }}{{ else }}PiPoker снова в норме: {{ .CommonAnnotations.summary }}{{ end }}
+{{- end }}
+
+{{ define "pipoker.telegram" -}}
+{{ range .Alerts.Firing }}⚠️ <b>{{ .Annotations.summary }}</b>
+{{ .Annotations.description }}
+
+{{ end }}{{ range .Alerts.Resolved }}✅ <b>Снова в норме:</b> {{ .Annotations.summary }}
+
+{{ end }}<a href="{{ template "pipoker.dashboard" . }}">Панель нагрузки</a>
+{{- end }}
+
+{{ define "pipoker.email" -}}
+<html><body style="font-family: sans-serif">
+{{ range .Alerts.Firing }}<p>⚠️ <b>{{ .Annotations.summary }}</b><br>{{ .Annotations.description }}</p>
+{{ end }}{{ range .Alerts.Resolved }}<p>✅ <b>Снова в норме:</b> {{ .Annotations.summary }}</p>
+{{ end }}<p><a href="{{ template "pipoker.dashboard" . }}">Панель нагрузки</a></p>
+</body></html>
+{{- end }}

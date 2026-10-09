@@ -1,0 +1,13 @@
+apiVersion: 1
+
+# Shows in Grafana (Alerting → Alert rules and Active notifications) which capacity alerts fire right now
+datasources:
+  - name: Alertmanager
+    uid: alertmanager
+    type: alertmanager
+    access: proxy
+    url: http://alertmanager:9093
+    editable: false
+    jsonData:
+      implementation: prometheus
+      handleGrafanaManagedAlerts: false

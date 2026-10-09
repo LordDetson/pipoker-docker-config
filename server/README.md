@@ -8,7 +8,8 @@ Caddy (80, 443) ── PROD_DOMAIN ── /ws → prod-backend, rest → prod-we
                 └─ QA_DOMAIN   ── /ws → qa-backend,   /grafana → grafana, rest → qa-web
 pipoker-prod:       mongodb, rabbitmq, backend, web
 pipoker-qa:         mongodb, rabbitmq, backend, web
-pipoker-monitoring: prometheus (scrapes both backends), grafana
+pipoker-monitoring: prometheus (scrapes both backends and the server), grafana, alertmanager,
+                    node-exporter, cadvisor
 ```
 
 The server pulls new versions itself, so GitHub never connects to it:
@@ -43,7 +44,7 @@ The server pulls new versions itself, so GitHub never connects to it:
    cd pipoker-docker-config/server
    cp qa.env.example qa.env && cp prod.env.example prod.env   # set real passwords
    cp caddy/.env.example caddy/.env                            # set the domains and the QA login
-   cp monitoring/.env.example monitoring/.env                  # set the Grafana admin password
+   cp monitoring/.env.example monitoring/.env                  # set the Grafana password and where alerts go
    ./update
    docker compose -f caddy/compose.yml up -d
    ```
@@ -117,6 +118,38 @@ It opens behind the QA login like QA itself; it can only be looked at, the dashb
 Each backend serves its metrics on port 8081 (`/actuator/prometheus`), which only the server's internal network
 reaches. Prometheus in `monitoring/` collects them every 30 seconds and keeps two years. Only counts are stored:
 no nicknames, room names or room ids. `./update` starts the dashboard once `monitoring/.env` exists.
+
+## Capacity
+
+Is the server strong enough for the load PiPoker has now? The **PiPoker capacity** dashboard
+(`https://<QA_DOMAIN>/grafana/d/pipoker-capacity`) answers it: **Headroom** is what the busiest resource has left,
+and **Load by resource** shows each one as a share of what the server has:
+
+| Resource | Measured |
+|---|---|
+| `cpu`, `memory`, `disk` | the server, by node-exporter |
+| `uplink`, `downlink` | the server's network card against the speed of the home internet connection, by cAdvisor |
+| `prod_heap` | objects the PROD backend keeps after garbage collection, against its heap |
+| `container_memory` | the container closest to its `mem_limit`, by cAdvisor |
+
+The rules in `monitoring/rules/capacity.yml` raise an alert while the load is still approaching a limit
+(the processor busy over 80% for 15 minutes, memory over 90%, the disk filling up within a week,
+the backend's message queues growing, and so on), and Alertmanager sends it to Telegram and by email, with
+another message once it is over. When the whole server is down nothing here can send anything: the
+Monitor PROD workflow below covers that.
+
+Setup, once:
+1. Set the speeds of the internet plan in `pipoker:uplink_capacity` and `pipoker:downlink_capacity`
+   (bits per second) in `monitoring/rules/capacity.yml`.
+2. In `monitoring/.env` fill in `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` (the bot of Monitor PROD will do,
+   see Telegram setup below), `ALERT_EMAIL`, and the mailbox the email is sent from: `SMTP_USERNAME` and
+   `SMTP_PASSWORD`. For Gmail that is an app password (Google account → Security → 2-Step Verification →
+   App passwords), and `SMTP_SMARTHOST` stays `smtp.gmail.com:587`.
+3. `./update`, then `monitoring/send-test-alert`: the test message arrives in Telegram and by email.
+
+Prometheus reads its configuration and rules when it starts, so after a change to them:
+`docker compose -f monitoring/compose.yml restart prometheus`. The rules are tested with
+`promtool test rules tests/capacity.test.yml` (in `monitoring/`; CI runs it).
 
 ## Feedback
 

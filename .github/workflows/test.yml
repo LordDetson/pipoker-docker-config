@@ -24,6 +24,8 @@ jobs:
           printf 'PROD_DOMAIN=http://prod.localhost\nQA_DOMAIN=http://qa.localhost\nQA_USERNAME=test\nQA_COOKIE_TOKEN=test\n' > caddy/.env
           echo "QA_PASSWORD_HASH='$(docker run --rm caddy:2-alpine caddy hash-password --plaintext test)'" >> caddy/.env
           printf 'GRAFANA_ROOT_URL=http://qa.localhost/grafana/\nGRAFANA_ADMIN_PASSWORD=%s\n' "$(openssl rand -hex 16)" > monitoring/.env
+          # Alerts are not delivered from CI: these only have to be there
+          printf 'TELEGRAM_BOT_TOKEN=123:test\nTELEGRAM_CHAT_ID=1\nALERT_EMAIL=test@localhost\nSMTP_SMARTHOST=localhost:25\nSMTP_USERNAME=test@localhost\nSMTP_PASSWORD=test\n' >> monitoring/.env
           echo "127.0.0.1 qa.localhost prod.localhost" | sudo tee -a /etc/hosts
 
       - name: Start the server
@@ -70,6 +72,42 @@ jobs:
             sleep 5
           done
           curl -sS "$query"
+          exit 1
+
+      - name: Test the capacity rules
+        working-directory: server/monitoring
+        run: docker run --rm -v "$PWD:/monitoring" -w /monitoring --entrypoint promtool prom/prometheus:v2.55.1 test rules tests/capacity.test.yml
+
+      - name: Check the capacity dashboard and alerts
+        working-directory: server
+        run: |
+          grafana=http://qa.localhost/grafana
+          prometheus="$grafana/api/datasources/proxy/uid/prometheus/api/v1"
+          curl -fsS "$grafana/api/search?query=PiPoker" | grep -q '"uid":"pipoker-capacity"'
+          # Alertmanager is up and Prometheus sends it the alerts
+          curl -fsS "$grafana/api/datasources/proxy/uid/alertmanager/api/v2/status" | grep -q '"uptime"'
+          curl -fsS "$prometheus/alertmanagers" | grep -q 'alertmanager:9093'
+          # Every rule loads, and every resource is measured: the server, its network card, the PROD backend's heap
+          # and the containers, which cAdvisor finds by their names. The rates need a few scrapes, hence the wait.
+          check() {
+            curl -fsS "$prometheus/rules" | python3 -c '
+          import json, sys
+          rules = [r for g in json.load(sys.stdin)["data"]["groups"] for r in g["rules"]]
+          bad = [r["name"] for r in rules if r["health"] != "ok"]
+          sys.exit(f"Rules that fail: {bad}" if bad else 0)' || return 1
+            for resource in cpu memory disk uplink downlink prod_heap container_memory; do
+              curl -fsS "$prometheus/query?query=pipoker:resource_usage:ratio%7Bresource%3D%22$resource%22%7D" | grep -q '"value"' || return 1
+            done
+            curl -fsS "$prometheus/query?query=container_memory_working_set_bytes%7Bname%3D~%22pipoker-prod-backend.%2B%22%7D" | grep -q '"value"' || return 1
+            # The thread pools of the room messages, which ProdMessagesQueued watches
+            curl -fsS "$prometheus/query?query=executor_queued_tasks%7Benv%3D%22prod%22,name%3D%22clientInboundChannelExecutor%22%7D" | grep -q '"value"'
+          }
+          for attempt in $(seq 1 30); do
+            check && exit 0
+            sleep 10
+          done
+          curl -sS "$prometheus/query?query=pipoker:resource_usage:ratio"
+          curl -sS "$prometheus/targets"
           exit 1
 
       - name: Check that Caddy picks up a changed Caddyfile

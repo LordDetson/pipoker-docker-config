@@ -1,4 +1,5 @@
-# Activity dashboard for both environments: Prometheus collects the backends' metrics, Grafana shows them.
+# Activity and capacity dashboards for both environments: Prometheus collects the metrics of the backends and of the
+# server itself, Grafana shows them, and Alertmanager sends the capacity alerts (see rules/) to Telegram and by email.
 # Grafana opens at https://<QA_DOMAIN>/grafana/ behind the QA login (see ../caddy/config/Caddyfile). Nothing here has a port
 # of its own on the server.
 name: pipoker-monitoring
@@ -14,8 +15,64 @@ services:
       - --storage.tsdb.retention.time=2y
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./rules:/etc/prometheus/rules:ro
       - prometheus-data:/prometheus
     mem_limit: 256m
+    networks:
+      - edge
+
+  alertmanager:
+    image: prom/alertmanager:v0.28.1
+    restart: unless-stopped
+    entrypoint: /etc/alertmanager/start
+    environment:
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:?}
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:?}
+      ALERT_EMAIL: ${ALERT_EMAIL:?}
+      SMTP_SMARTHOST: ${SMTP_SMARTHOST:?}
+      SMTP_USERNAME: ${SMTP_USERNAME:?}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:?}
+      GRAFANA_ROOT_URL: ${GRAFANA_ROOT_URL:?}
+    volumes:
+      - ./alertmanager:/etc/alertmanager:ro
+      # Which alerts were sent and which are silenced, kept across restarts so nothing is sent twice
+      - alertmanager-data:/alertmanager
+    mem_limit: 64m
+    networks:
+      - edge
+
+  # The load of the server as a whole. It looks at the server's /proc and /sys, mounted read-only.
+  node-exporter:
+    image: prom/node-exporter:v1.8.2
+    restart: unless-stopped
+    command:
+      - --path.rootfs=/host
+    pid: host
+    volumes:
+      - /:/host:ro,rslave
+    mem_limit: 64m
+    networks:
+      - edge
+
+  # The load of every container: processor, memory against its limit, network. Docker's own data is read-only;
+  # cAdvisor needs the privileged mode to read the statistics of the other containers.
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.52.1
+    restart: unless-stopped
+    command:
+      - --docker_only=true
+      - --housekeeping_interval=30s
+      - --enable_metrics=cpu,memory,network
+      - --store_container_labels=false
+    privileged: true
+    devices:
+      - /dev/kmsg
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker:/var/lib/docker:ro
+    mem_limit: 192m
     networks:
       - edge
 
@@ -52,6 +109,7 @@ services:
 
 volumes:
   prometheus-data:
+  alertmanager-data:
   grafana-data:
 
 networks:

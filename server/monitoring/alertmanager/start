@@ -1,0 +1,21 @@
+#!/bin/sh
+# Starts Alertmanager with the settings of ../.env: the bot token and the mail password go to files only this
+# container can read, the other values are written into alertmanager.yml and pipoker.tmpl.
+set -eu
+
+umask 077
+mkdir -p /tmp/secrets /tmp/alertmanager
+printf '%s' "$TELEGRAM_BOT_TOKEN" > /tmp/secrets/telegram_bot_token
+printf '%s' "$SMTP_PASSWORD" > /tmp/secrets/smtp_password
+
+for file in alertmanager.yml pipoker.tmpl; do
+	sed -e "s|\${TELEGRAM_CHAT_ID}|$TELEGRAM_CHAT_ID|g" \
+		-e "s|\${ALERT_EMAIL}|$ALERT_EMAIL|g" \
+		-e "s|\${SMTP_USERNAME}|$SMTP_USERNAME|g" \
+		-e "s|\${SMTP_SMARTHOST}|$SMTP_SMARTHOST|g" \
+		-e "s|\${GRAFANA_ROOT_URL}|$GRAFANA_ROOT_URL|g" \
+		"/etc/alertmanager/$file" > "/tmp/alertmanager/$file"
+done
+
+# One Alertmanager, so it needs no cluster with others
+exec /bin/alertmanager --config.file=/tmp/alertmanager/alertmanager.yml --storage.path=/alertmanager --cluster.listen-address=

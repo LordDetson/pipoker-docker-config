@@ -1,0 +1,34 @@
+# Where the alerts of ../rules go: Telegram and email, both to the owner of the server. The ${...} values come from
+# ../.env and are filled in by ./start when the container starts; the bot token and the mail password are passed
+# as files, so they never appear in the configuration Alertmanager shows.
+route:
+  receiver: owner
+  # One message per kind of problem: alerts of the same kind (say, two containers near their memory limit)
+  # arrive together
+  group_by: [alertname]
+  group_wait: 30s
+  group_interval: 5m
+  # A problem that lasts is repeated twice a day, so it is not forgotten
+  repeat_interval: 12h
+
+receivers:
+  - name: owner
+    telegram_configs:
+      - bot_token_file: /tmp/secrets/telegram_bot_token
+        chat_id: ${TELEGRAM_CHAT_ID}
+        parse_mode: HTML
+        message: '{{ template "pipoker.telegram" . }}'
+        send_resolved: true
+    email_configs:
+      - to: ${ALERT_EMAIL}
+        from: PiPoker <${SMTP_USERNAME}>
+        smarthost: ${SMTP_SMARTHOST}
+        auth_username: ${SMTP_USERNAME}
+        auth_password_file: /tmp/secrets/smtp_password
+        headers:
+          Subject: '{{ template "pipoker.subject" . }}'
+        html: '{{ template "pipoker.email" . }}'
+        send_resolved: true
+
+templates:
+  - /tmp/alertmanager/*.tmpl
