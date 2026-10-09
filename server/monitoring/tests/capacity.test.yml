@@ -28,7 +28,7 @@ tests:
         values: 100e6x60
       - series: jvm_gc_max_data_size_bytes{env="prod"}
         values: 400e6x60
-      # 1.25 MB/s out = 10 Mbit/s, a tenth of the 100 Mbit/s connection
+      # 1.25 MB/s out = 10 Mbit/s, a twentieth of the 200 Mbit/s connection
       - series: container_network_transmit_bytes_total{id="/", interface="enp2s0"}
         values: 0+37.5e6x60
       # Traffic between containers stays on the server and is not counted
@@ -47,7 +47,7 @@ tests:
           - labels: pipoker:resource_usage:ratio{resource="prod_heap"}
             value: 0.25
           - labels: pipoker:resource_usage:ratio{resource="uplink"}
-            value: 0.1
+            value: 0.05
       # Headroom is what the busiest resource, the processor, leaves
       - expr: round(pipoker:headroom:ratio * 100)
         eval_time: 20m

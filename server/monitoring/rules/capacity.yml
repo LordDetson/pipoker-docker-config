@@ -9,11 +9,11 @@ groups:
     rules:
       # Speed of the home internet connection, as the provider's plan promises it. Everything PiPoker sends and
       # receives goes through the Cloudflare tunnel over this connection, shared with everything else at home.
-      # Change them to the speeds of the plan.
+      # The plan of the server (MTS, 200 Mbit/s); change them with the plan.
       - record: pipoker:uplink_capacity:bits_per_second
-        expr: vector(100e6)
+        expr: vector(200e6)
       - record: pipoker:downlink_capacity:bits_per_second
-        expr: vector(100e6)
+        expr: vector(200e6)
 
       # Processor: the share of time not idle and not waiting for the disk, over all cores
       - record: pipoker:resource_usage:ratio
