@@ -42,6 +42,18 @@ for (const status of [502, 503, 504, 521, 522, 530]) {
 	});
 }
 
+test('hardens the unavailable page like every other page', async () => {
+	serverAnswers(530);
+	const response = await worker.fetch(page());
+	assert.match(response.headers.get('Content-Security-Policy'), /default-src 'none'.*frame-ancestors 'none'/);
+	assert.equal(response.headers.get('Strict-Transport-Security'), 'max-age=31536000; includeSubDomains');
+	assert.equal(response.headers.get('X-Content-Type-Options'), 'nosniff');
+	assert.equal(response.headers.get('X-Frame-Options'), 'DENY');
+	assert.equal(response.headers.get('Referrer-Policy'), 'strict-origin-when-cross-origin');
+	assert.match(response.headers.get('Permissions-Policy'), /camera=\(\)/);
+	assert.doesNotMatch(await response.text(), /<script/);
+});
+
 test('shows the unavailable page when the server cannot be reached at all', async () => {
 	globalThis.fetch = async () => {
 		throw new TypeError('network connection lost');
