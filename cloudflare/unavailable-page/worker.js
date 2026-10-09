@@ -44,6 +44,17 @@ export default {
 	},
 };
 
+// The hardening Caddy adds to every page (see server/caddy/config/Caddyfile). When the tunnel is down the response
+// never passes Caddy, so this page carries it itself. It loads nothing and runs no script: only its inline style.
+const SECURITY_HEADERS = {
+	'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'",
+	'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
+	'X-Content-Type-Options': 'nosniff',
+	'X-Frame-Options': 'DENY',
+	'Referrer-Policy': 'strict-origin-when-cross-origin',
+	'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), payment=(), usb=()',
+};
+
 function isPage(request) {
 	if (request.method !== 'GET') {
 		return false;
@@ -96,6 +107,7 @@ p { margin: 0 0 12px; line-height: 1.5; }
 			'Content-Type': 'text/html; charset=utf-8',
 			'Cache-Control': 'no-store',
 			'Retry-After': '30',
+			...SECURITY_HEADERS,
 		},
 	});
 }
