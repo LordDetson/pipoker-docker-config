@@ -85,7 +85,7 @@ jobs:
           prometheus="$grafana/api/datasources/proxy/uid/prometheus/api/v1"
           curl -fsS "$grafana/api/search?query=PiPoker" | grep -q '"uid":"pipoker-capacity"'
           # Alertmanager is up and Prometheus sends it the alerts
-          curl -fsS "$grafana/api/datasources/proxy/uid/alertmanager/api/v2/status" | grep -q '"status":"ready"'
+          curl -fsS "$grafana/api/datasources/proxy/uid/alertmanager/api/v2/status" | grep -q '"uptime"'
           curl -fsS "$prometheus/alertmanagers" | grep -q 'alertmanager:9093'
           # Every rule loads, and every resource is measured: the server, its network card, the PROD backend's heap
           # and the containers, which cAdvisor finds by their names. The rates need a few scrapes, hence the wait.
