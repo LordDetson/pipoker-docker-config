@@ -109,9 +109,17 @@
 		}
 		header @login Set-Cookie "pipoker_qa_login={$QA_COOKIE_TOKEN}; Path=/; Max-Age=2592000; Secure; HttpOnly; SameSite=Lax"
 		# The activity dashboard of both environments (see ../../monitoring), behind the same login. Grafana ships
-		# its own security headers, so this path is handled on its own and does not get ours; every other address
-		# falls through to the security headers and the app.
+		# some headers of its own (X-Frame-Options DENY, X-Content-Type-Options nosniff) and a strict
+		# Content-Security-Policy would break its UI, so this path is handled on its own instead of falling through
+		# to (security-headers). It still gets the three hardening headers Grafana does not set itself, so QA's
+		# /grafana carries the same headers PROD's /grafana does (there the path is unknown and the app answers it
+		# under the full (security-headers) set) — the two environments differ only in the CSP that Grafana needs.
 		handle /grafana* {
+			header {
+				Strict-Transport-Security "max-age=31536000; includeSubDomains"
+				Referrer-Policy strict-origin-when-cross-origin
+				Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
+			}
 			reverse_proxy pipoker-grafana:3000
 		}
 		handle {
