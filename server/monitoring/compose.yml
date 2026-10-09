@@ -55,9 +55,11 @@ services:
       - edge
 
   # The load of every container: processor, memory against its limit, network. Docker's own data is read-only;
-  # cAdvisor needs the privileged mode to read the statistics of the other containers.
+  # cAdvisor needs the privileged mode to read the statistics of the other containers. From v0.56 it also finds
+  # the containers of a Docker that keeps images in containerd (storage driver overlayfs, the default for new
+  # installs since Docker 29), through containerd's socket under /var/run.
   cadvisor:
-    image: gcr.io/cadvisor/cadvisor:v0.52.1
+    image: ghcr.io/google/cadvisor:v0.60.5
     restart: unless-stopped
     command:
       - --docker_only=true
