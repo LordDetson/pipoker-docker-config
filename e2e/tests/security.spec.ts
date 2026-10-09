@@ -262,6 +262,14 @@ test('the activity dashboard answers on QA and nowhere else', async ({api}) => {
     // The dashboard of both environments lives behind the QA login
     expect(response.status()).toBe(200);
     expect(isGrafana, 'the address shows the dashboard, not the app').toBe(true);
+    // PIP-46 parity: QA's /grafana carries the same hardening headers PROD's /grafana does. A strict CSP would
+    // break Grafana's UI, and Grafana sets its own X-Frame-Options/X-Content-Type-Options, so Caddy adds only the
+    // three it does not: HSTS, Referrer-Policy and Permissions-Policy. (X-Frame-Options still comes from Grafana.)
+    const g = response.headers();
+    expect(g['strict-transport-security'], 'QA /grafana keeps the browser on HTTPS').toMatch(/max-age=\d+/);
+    expect(g['referrer-policy'], 'QA /grafana limits what other sites learn').toBe('strict-origin-when-cross-origin');
+    expect(g['permissions-policy'], 'QA /grafana switches the camera off').toContain('camera=()');
+    expect(g['x-frame-options']?.toLowerCase(), 'QA /grafana may not be framed (Grafana sets this itself)').toBe('deny');
   } else {
     // PROD runs no dashboard, so /grafana is just one more unknown address: the app's page, and it carries the
     // same security headers as every other page. (PIP-46: these addresses used to miss the hardening headers,
