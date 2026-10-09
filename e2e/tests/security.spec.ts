@@ -263,13 +263,13 @@ test('the activity dashboard answers on QA and nowhere else', async ({api}) => {
     expect(response.status()).toBe(200);
     expect(isGrafana, 'the address shows the dashboard, not the app').toBe(true);
   } else {
-    // PROD runs no dashboard, so for the app this is one more unknown address
+    // PROD runs no dashboard, so /grafana is just one more unknown address: the app's page, and it carries the
+    // same security headers as every other page. (PIP-46: these addresses used to miss the hardening headers,
+    // because the shared Caddy snippet kept them off /grafana for QA's dashboard and PROD inherited that.)
     expect(isGrafana, 'no dashboard is reachable outside QA').toBe(false);
-    if (response.status() === 200) {
-      expect(body).toContain('<app-root');
-    }
-    const hardening = ['content-security-policy', 'x-frame-options', 'x-content-type-options', 'referrer-policy', 'permissions-policy', 'strict-transport-security'];
-    const missing = hardening.filter(header => response.headers()[header] === undefined);
-    console.log(`security headers at /grafana/: ${missing.length ? `missing ${missing.join(', ')}` : 'all there'}`);
+    expect(response.status(), "/grafana/ on PROD is the app's page").toBe(200);
+    expect(response.headers()['content-type']).toMatch(/^text\/html/);
+    expect(body).toContain('<app-root');
+    expectSecurityHeaders('/grafana/ on PROD', response);
   }
 });
