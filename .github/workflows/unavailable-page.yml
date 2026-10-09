@@ -50,4 +50,4 @@ jobs:
 
       - name: Explain the skipped deploy
         if: github.ref == 'refs/heads/main' && env.CLOUDFLARE_API_TOKEN == ''
-        run: echo "::notice::Not deployed: the secrets CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID are not set"
+        run: echo '::notice::Not deployed, the secrets CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID are not set'
