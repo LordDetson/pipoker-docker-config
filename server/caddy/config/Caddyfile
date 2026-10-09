@@ -29,11 +29,16 @@
 	}
 }
 
-(pipoker) {
-	# Security headers for the app and its web client. Not for the Grafana dashboard (/grafana on QA): it sets
-	# its own, and we don't fight it.
-	@site not path /grafana*
-	header @site {
+# The security headers every page of the site carries, put on by the reverse proxy in front of the web server.
+# The Content-Security-Policy is the strict one enforced across both environments; the rest harden the browser
+# further. The two environments apply this the same way, except that QA keeps it off its /grafana dashboard,
+# which reverse-proxies Grafana and ships its own headers (see the QA block); PROD runs no Grafana, so there the
+# headers cover every address, including unknown ones like /grafana that just fall through to the app's page.
+# worker-src 'self' blob: — the app runs its ping timer in a Worker built from a blob: URL (so a background tab
+# can't throttle it); without the directive it would fall back to script-src and be blocked.
+(security-headers) {
+	header {
+		Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'; worker-src 'self' blob:; manifest-src 'self'; frame-ancestors 'none'; base-uri 'self'; object-src 'none'; form-action 'self'"
 		# Keep the browser on HTTPS for a year. The .app zone is already in the HSTS preload list, so this only
 		# reaffirms it; includeSubDomains covers qa. (No "preload" directive until we're sure we never want HTTP.)
 		Strict-Transport-Security "max-age=31536000; includeSubDomains"
@@ -46,7 +51,9 @@
 		# Switch off browser features PiPoker never uses, so a compromised page can't reach for them
 		Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
 	}
+}
 
+(pipoker) {
 	# The web client connects to the backend on the same domain: the rooms over a WebSocket, feedback over HTTP.
 	# Feedback is rate-limited per address, so the backend must see the real visitor. {client_ip} is that
 	# visitor: Cloudflare's address resolved back to CF-Connecting-IP for trusted Cloudflare peers (see the
@@ -69,12 +76,8 @@
 
 {$PROD_DOMAIN} {
 	import cf-tls
-	# Content-Security-Policy, enforced. PROD serves the web image with the inline scripts removed (web#69,
-	# on PROD since 2026-10-07), so the same policy QA ran in report-only and now enforces is safe here too.
-	# Kept as its own line rather than shared with QA: QA excludes /grafana and the two can diverge. worker-src
-	# 'self' blob: — the app runs its ping timer in a Worker built from a blob: URL (so a background tab can't
-	# throttle it); without the directive it would fall back to script-src and be blocked.
-	header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'; worker-src 'self' blob:; manifest-src 'self'; frame-ancestors 'none'; base-uri 'self'; object-src 'none'; form-action 'self'"
+	# PROD runs no Grafana, so every address — the app, its bundles and any unknown path — gets the security headers.
+	import security-headers
 	import pipoker prod
 }
 
@@ -98,24 +101,22 @@
 		not client_ip private_ranges
 		expression `{env.QA_COOKIE_TOKEN} == "" || {http.request.cookie.pipoker_qa_login} != {env.QA_COOKIE_TOKEN}`
 	}
-	# Content-Security-Policy, enforced. Same policy as PROD (see the PROD block), but kept separate because
-	# QA must exclude /grafana, which ships its own headers and which PROD doesn't run. We ran it in report-only
-	# on QA long enough to see nothing of ours is blocked before enforcing on both environments.
-	@csp not path /grafana*
-	# A route keeps this order: Caddy would otherwise set the header before checking the login,
-	# and the cookie would go out with the request for the login too
+	# A route keeps this order: Caddy would otherwise set the headers before checking the login,
+	# and the cookie would go out with the request for the login too.
 	route {
 		basic_auth @login {
 			{$QA_USERNAME} {$QA_PASSWORD_HASH}
 		}
 		header @login Set-Cookie "pipoker_qa_login={$QA_COOKIE_TOKEN}; Path=/; Max-Age=2592000; Secure; HttpOnly; SameSite=Lax"
-		# worker-src 'self' blob: — the app runs its ping timer in a Worker built from a blob: URL (so a
-		# background tab can't throttle it); without this directive it would fall back to script-src and be blocked.
-		header @csp Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'; worker-src 'self' blob:; manifest-src 'self'; frame-ancestors 'none'; base-uri 'self'; object-src 'none'; form-action 'self'"
-		# The activity dashboard of both environments (see ../../monitoring), behind the same login
+		# The activity dashboard of both environments (see ../../monitoring), behind the same login. Grafana ships
+		# its own security headers, so this path is handled on its own and does not get ours; every other address
+		# falls through to the security headers and the app.
 		handle /grafana* {
 			reverse_proxy pipoker-grafana:3000
 		}
-		import pipoker qa
+		handle {
+			import security-headers
+			import pipoker qa
+		}
 	}
 }
