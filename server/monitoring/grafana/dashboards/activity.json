@@ -177,7 +177,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(increase({__name__=~\"pipoker_rooms_created_total|pipoker_room_creations_total\", env=\"$env\"}[$__range]))",
+          "expr": "(sum(increase(pipoker_rooms_created_total{env=\"$env\"}[$__range])) or vector(0)) + (sum(increase(pipoker_room_creations_total{env=\"$env\"}[$__range])) or vector(0))",
           "instant": false
         }
       ]
@@ -438,7 +438,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(increase({__name__=~\"pipoker_rooms_created_total|pipoker_room_creations_total\", env=\"$env\"}[1h]))",
+          "expr": "(sum(increase(pipoker_rooms_created_total{env=\"$env\"}[1h])) or vector(0)) + (sum(increase(pipoker_room_creations_total{env=\"$env\"}[1h])) or vector(0))",
           "legendFormat": "Rooms created"
         },
         {
@@ -523,7 +523,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(increase({__name__=~\"pipoker_rooms_created_total|pipoker_room_creations_total\", env=\"$env\"}[1d]))",
+          "expr": "(sum(increase(pipoker_rooms_created_total{env=\"$env\"}[1d])) or vector(0)) + (sum(increase(pipoker_room_creations_total{env=\"$env\"}[1d])) or vector(0))",
           "legendFormat": "Rooms created"
         }
       ],

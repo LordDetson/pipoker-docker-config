@@ -7,9 +7,9 @@
 groups:
   - name: capacity
     rules:
-      # Speed of the home internet connection, as the provider's plan promises it. Everything PiPoker sends and
-      # receives goes through the Cloudflare tunnel over this connection, shared with everything else at home.
-      # Change them to the speeds of the plan.
+      # How fast the server can reach the internet. Everything PiPoker sends and receives goes through the Cloudflare
+      # tunnel over the home connection, shared with everything else at home. The MTS plan gives 200 Mbit/s, but the
+      # server is wired to the modem with a 100 Mbit/s Ethernet cable, so the cable is the narrower link.
       - record: pipoker:uplink_capacity:bits_per_second
         expr: vector(100e6)
       - record: pipoker:downlink_capacity:bits_per_second
