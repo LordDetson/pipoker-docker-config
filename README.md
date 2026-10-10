@@ -4,19 +4,20 @@
 
 # PiPoker infrastructure
 
-**How [PiPoker](https://pipoker.app) runs, ships and is checked: QA and PROD on one Docker host, live end-to-end tests
+**How [PiPoker](https://pipoker.app/?from=github) runs, ships and is checked: QA and PROD on one Docker host, live end-to-end tests
 and uptime monitoring.**
 
-[**pipoker.app**](https://pipoker.app) &nbsp;·&nbsp;
+[**pipoker.app**](https://pipoker.app/?from=github) &nbsp;·&nbsp;
 [Backend](https://github.com/LordDetson/pipoker-app) &nbsp;·&nbsp;
-[Web client](https://github.com/LordDetson/pipoker-web) &nbsp;·&nbsp;
-[Support the project](https://lorddetson.github.io/)
+[Web client](https://github.com/LordDetson/pipoker-web)
 
 [![Test](https://github.com/LordDetson/pipoker-docker-config/actions/workflows/test.yml/badge.svg)](https://github.com/LordDetson/pipoker-docker-config/actions/workflows/test.yml)
 [![Live E2E](https://github.com/LordDetson/pipoker-docker-config/actions/workflows/live-e2e.yml/badge.svg)](https://github.com/LordDetson/pipoker-docker-config/actions/workflows/live-e2e.yml)
 [![Monitor PROD](https://github.com/LordDetson/pipoker-docker-config/actions/workflows/monitor.yml/badge.svg)](https://github.com/LordDetson/pipoker-docker-config/actions/workflows/monitor.yml)
-[![Website](https://img.shields.io/website?url=https%3A%2F%2Fpipoker.app&label=pipoker.app)](https://pipoker.app)
+[![Website](https://img.shields.io/website?url=https%3A%2F%2Fpipoker.app&label=pipoker.app)](https://pipoker.app/?from=github)
 [![License](https://img.shields.io/github/license/LordDetson/pipoker-docker-config)](LICENSE)
+
+[![Support the project](https://img.shields.io/badge/%E2%9D%A4%EF%B8%8F_Support_the_project-lorddetson.github.io-ff4f8b?style=for-the-badge)](https://lorddetson.github.io/)
 
 ![Docker](https://img.shields.io/badge/Docker_Compose-2496ED?logo=docker&logoColor=white)
 ![Caddy](https://img.shields.io/badge/Caddy-1F88C0?logo=caddy&logoColor=white)
