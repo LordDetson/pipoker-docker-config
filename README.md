@@ -17,7 +17,7 @@ and uptime monitoring.**
 [![Website](https://img.shields.io/website?url=https%3A%2F%2Fpipoker.app&label=pipoker.app)](https://pipoker.app/?from=github)
 [![License](https://img.shields.io/github/license/LordDetson/pipoker-docker-config)](LICENSE)
 
-[![Support the project](https://img.shields.io/badge/%E2%9D%A4%EF%B8%8F_Support_the_project-lorddetson.github.io-ff4f8b?style=for-the-badge)](https://lorddetson.github.io/)
+[![Support the project](https://img.shields.io/badge/%F0%9F%A7%A1_Support_the_project-lorddetson.github.io-ff8c00?style=for-the-badge)](https://lorddetson.github.io/)
 
 ![Docker](https://img.shields.io/badge/Docker_Compose-2496ED?logo=docker&logoColor=white)
 ![Caddy](https://img.shields.io/badge/Caddy-1F88C0?logo=caddy&logoColor=white)
