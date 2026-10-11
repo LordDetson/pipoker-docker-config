@@ -105,11 +105,14 @@ jobs:
           echo "QA_PASSWORD_HASH='$(docker run --rm caddy:2-alpine caddy hash-password --plaintext test)'" >> caddy/.env
           echo "127.0.0.1 prod.localhost" | sudo tee -a /etc/hosts
           # The backend also logs how each connection closed and which messages arrived, for the presence checks,
-          # and closes idle rooms after ROOM_IDLE_SECONDS (see above)
+          # and closes idle rooms after ROOM_IDLE_SECONDS (see above). It runs the human check of the feedback form
+          # with Cloudflare's test keys, like QA, which always pass unseen
           cat > compose.local.yml <<EOF
           services:
             backend:
               environment:
+                TURNSTILE_SITE_KEY: 1x00000000000000000000BB
+                TURNSTILE_SECRET_KEY: 1x0000000000000000000000000000000AA
                 SPRING_APPLICATION_JSON: >-
                   {"logging.level.org.springframework.web.socket.handler.LoggingWebSocketHandlerDecorator": "DEBUG",
                   "logging.level.org.springframework.web.socket.messaging.WebSocketAnnotationMethodMessageHandler": "DEBUG",

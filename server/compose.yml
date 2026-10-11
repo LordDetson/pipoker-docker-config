@@ -63,6 +63,9 @@ services:
       JIRA_EMAIL: ${JIRA_EMAIL:-}
       JIRA_API_TOKEN: ${JIRA_API_TOKEN:-}
       JIRA_PROJECT: ${JIRA_PROJECT:-PIP}
+      # Feedback is taken only from people who pass the invisible human check once these are set, from everyone until then
+      TURNSTILE_SITE_KEY: ${TURNSTILE_SITE_KEY:-}
+      TURNSTILE_SECRET_KEY: ${TURNSTILE_SECRET_KEY:-}
     mem_limit: 768m
     networks:
       default:

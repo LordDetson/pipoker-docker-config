@@ -173,6 +173,19 @@ The token is an Atlassian API token with scopes, limited to creating issues:
 3. `./update` restarts the backends with the token. To file the feedback in another project, add `JIRA_PROJECT=<key>`
    to both files and run `./update` again.
 
+Robots don't get through: the form runs [Cloudflare Turnstile](https://developers.cloudflare.com/turnstile/), an
+invisible human check. While a person writes, Cloudflare checks the browser in a hidden frame and gives the page a
+token; the backend asks Cloudflare whether it is a person's and answers 403 when it isn't. People see and click
+nothing. The script loads with the form, not with the site. If Cloudflare can't be reached or doesn't know the secret
+key, messages are taken anyway (the backend log says so). Until both keys are set, messages are taken from everyone.
+
+1. In the Cloudflare dashboard: **Turnstile** → **Add widget**, name `PiPoker`, hostname `pipoker.app`, widget mode
+   **Invisible**, pre-clearance **No**.
+2. In `prod.env` set `TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY` to the widget's keys. `qa.env` keeps
+   Cloudflare's test keys from `qa.env.example`, which always pass unseen, so the tests' browsers aren't taken for
+   robots there.
+3. `./update` restarts the backends with the keys.
+
 ## Releasing to PROD
 
 Check the change on QA (for example with **Live E2E** below), then run **Promote to PROD** in pipoker-app and/or pipoker-web (Actions tab)
