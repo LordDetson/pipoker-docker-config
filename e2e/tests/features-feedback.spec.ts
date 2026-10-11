@@ -159,6 +159,9 @@ test('someone reports a problem from a room and the message carries the room and
   expect(request.headers()['content-type']).toBe('application/json');
   const viewport = alice.page.viewportSize();
   const body = request.postDataJSON();
+  // Where the server runs the human check (QA and the local copy, with Cloudflare's test keys), the message carries
+  // the token Cloudflare's invisible check gave the page; elsewhere it carries none
+  const {siteKey} = await (await alice.page.request.get(`${baseUrl}/api/human-check`)).json();
   expect(body).toEqual({
     kind: 'problem',
     message: 'The cards do not turn over on my screen',
@@ -175,7 +178,8 @@ test('someone reports a problem from a room and the message carries the room and
     screen: expect.stringMatching(/^\d+x\d+$/),
     window: viewport ? `${viewport.width}x${viewport.height}` : expect.stringMatching(/^\d+x\d+$/),
     time: expect.stringMatching(/^\d{4}-\d\d-\d\d \d\d:\d\d:\d\d [+-]\d\d:\d\d$/),
-    timeZone: expect.stringMatching(/\S/)
+    timeZone: expect.stringMatching(/\S/),
+    ...(siteKey ? {humanCheckToken: expect.stringMatching(/\S/)} : {})
   });
   expect(JSON.stringify(body), 'nobody is named in the message').not.toMatch(/Alice|Bob|Carol/);
   // The time is the browser's local time with its offset, so it reads as a moment on any clock

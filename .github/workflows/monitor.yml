@@ -34,6 +34,8 @@ env:
   TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
   TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
   HEALTHCHECKS_PING_URL: ${{ secrets.HEALTHCHECKS_PING_URL }}
+  # PROD asks for the human check before creating a room; the check's room passes with the server's bypass token
+  HUMAN_CHECK_BYPASS_TOKEN: ${{ secrets.HUMAN_CHECK_BYPASS_TOKEN }}
   RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
 jobs:

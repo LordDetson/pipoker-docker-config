@@ -40,7 +40,11 @@ function expectSecurityHeaders(what: string, response: APIResponse) {
   const csp = headers['content-security-policy'] ?? '';
   expect(csp, `${what}: the Content-Security-Policy allows the site itself by default`).toContain("default-src 'self'");
   expect(csp, `${what}: nobody may put the site in a frame`).toContain("frame-ancestors 'none'");
-  expect(csp, `${what}: scripts come from the site only, none inline`).toMatch(/(^|;\s*)script-src 'self'\s*(;|$)/);
+  // and from Cloudflare, whose invisible human check the feedback form runs in a frame of its own
+  expect(csp, `${what}: scripts come from the site and Cloudflare's human check only, none inline`)
+    .toMatch(/(^|;\s*)script-src 'self' https:\/\/challenges\.cloudflare\.com\s*(;|$)/);
+  expect(csp, `${what}: frames come from Cloudflare's human check only`)
+    .toMatch(/(^|;\s*)frame-src https:\/\/challenges\.cloudflare\.com\s*(;|$)/);
   expect(headers['permissions-policy'], `${what}: the camera is switched off`).toContain('camera=()');
   expect(headers['referrer-policy'], `${what}: other sites learn only where a visitor came from`).toBe('strict-origin-when-cross-origin');
   expect(headers['x-content-type-options'], `${what}: the browser must not guess content types`).toBe('nosniff');

@@ -63,6 +63,11 @@ services:
       JIRA_EMAIL: ${JIRA_EMAIL:-}
       JIRA_API_TOKEN: ${JIRA_API_TOKEN:-}
       JIRA_PROJECT: ${JIRA_PROJECT:-PIP}
+      # Feedback is taken and rooms are created only for people who pass the invisible human check once these are set,
+      # for everyone until then. The server's own checks, which create rooms without a browser, send the bypass token
+      TURNSTILE_SITE_KEY: ${TURNSTILE_SITE_KEY:-}
+      TURNSTILE_SECRET_KEY: ${TURNSTILE_SECRET_KEY:-}
+      HUMAN_CHECK_BYPASS_TOKEN: ${HUMAN_CHECK_BYPASS_TOKEN:-}
     mem_limit: 768m
     networks:
       default:

@@ -31,6 +31,8 @@ jobs:
       BASE_URL: ${{ inputs.url || 'https://qa.pipoker.app' }}
       QA_USERNAME: ${{ secrets.QA_USERNAME }}
       QA_PASSWORD: ${{ secrets.QA_PASSWORD }}
+      # The load test creates rooms without a browser, so it passes QA's human check with the server's bypass token
+      HUMAN_CHECK_BYPASS_TOKEN: ${{ secrets.HUMAN_CHECK_BYPASS_TOKEN }}
     steps:
       - name: Log in to QA
         run: |
@@ -61,6 +63,8 @@ jobs:
       # so the closing can be watched in a test (see e2e/tests/features-idle-room.spec.ts)
       ROOM_IDLE_SECONDS: 90
       ROOM_IDLE_CHECK_SECONDS: 10
+      # The local backend's bypass token for the checks that create rooms without a browser (set below)
+      HUMAN_CHECK_BYPASS_TOKEN: local-bypass
     steps:
       - uses: actions/checkout@v4
 
@@ -105,11 +109,15 @@ jobs:
           echo "QA_PASSWORD_HASH='$(docker run --rm caddy:2-alpine caddy hash-password --plaintext test)'" >> caddy/.env
           echo "127.0.0.1 prod.localhost" | sudo tee -a /etc/hosts
           # The backend also logs how each connection closed and which messages arrived, for the presence checks,
-          # and closes idle rooms after ROOM_IDLE_SECONDS (see above)
+          # and closes idle rooms after ROOM_IDLE_SECONDS (see above). It runs the human check of the feedback form
+          # with Cloudflare's test keys, like QA, which always pass unseen
           cat > compose.local.yml <<EOF
           services:
             backend:
               environment:
+                TURNSTILE_SITE_KEY: 1x00000000000000000000BB
+                TURNSTILE_SECRET_KEY: 1x0000000000000000000000000000000AA
+                HUMAN_CHECK_BYPASS_TOKEN: ${HUMAN_CHECK_BYPASS_TOKEN}
                 SPRING_APPLICATION_JSON: >-
                   {"logging.level.org.springframework.web.socket.handler.LoggingWebSocketHandlerDecorator": "DEBUG",
                   "logging.level.org.springframework.web.socket.messaging.WebSocketAnnotationMethodMessageHandler": "DEBUG",
