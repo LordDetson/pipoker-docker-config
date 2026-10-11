@@ -151,6 +151,10 @@ Prometheus reads its configuration and rules when it starts, so after a change t
 `docker compose -f monitoring/compose.yml restart prometheus`. The rules are tested with
 `promtool test rules tests/capacity.test.yml` (in `monitoring/`; CI runs it).
 
+`monitoring/clear-activity` deletes the whole history of the activity metrics of both environments (it asks first and
+cannot be undone), for example to start the activity dashboard over once tests stopped being counted. Prometheus is
+stopped for that minute; the load history stays.
+
 ## Feedback
 
 People send feedback from the site without signing up: a problem, an idea or a review. The backend turns each

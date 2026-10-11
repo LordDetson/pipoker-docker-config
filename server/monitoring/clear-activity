@@ -1,0 +1,64 @@
+#!/bin/bash
+# Deletes the whole history of the activity metrics (pipoker_*: visits, rooms, people, votes, rounds) of both
+# environments, so the activity dashboard starts over with real people only. The load of the server and the
+# capacity alerts keep their history. There is no way back: run it once, after the backends stopped counting tests.
+#
+# Prometheus deletes data only through its admin API, which stays off in normal running. So Prometheus is stopped
+# for a minute, a second one with the admin API and without network deletes the series from the same data, and
+# Prometheus starts again. The load charts miss that minute.
+set -euo pipefail
+
+cd "$(dirname "$0")"
+
+# {__name__=~"pipoker_.+"} as it goes in an address
+SERIES='%7B__name__%3D~%22pipoker_.%2B%22%7D'
+CLEANER=pipoker-prometheus-cleaner
+
+read -r -p "Delete the activity history of PROD and QA for good? Type yes: " answer
+if [ "$answer" != yes ]; then
+	echo "Nothing deleted."
+	exit 1
+fi
+
+prometheus=$(docker compose ps -q prometheus)
+if [ -z "$prometheus" ]; then
+	echo "Prometheus is not running: nothing to clear." >&2
+	exit 1
+fi
+image=$(docker inspect --format '{{.Config.Image}}' "$prometheus")
+data=$(docker inspect --format '{{range .Mounts}}{{if eq .Destination "/prometheus"}}{{.Name}}{{end}}{{end}}' "$prometheus")
+
+restart() {
+	docker rm -f "$CLEANER" >/dev/null 2>&1 || true
+	docker compose start prometheus >/dev/null
+	echo "Prometheus is running again."
+}
+docker compose stop prometheus >/dev/null
+trap restart EXIT
+
+docker run -d --name "$CLEANER" --network none -v "$data":/prometheus "$image" \
+	--config.file=/etc/prometheus/prometheus.yml --storage.tsdb.path=/prometheus --web.enable-admin-api >/dev/null
+
+api() {
+	docker exec "$CLEANER" wget -q -O - "$@"
+}
+# Opening two years of data takes a few seconds
+for _ in $(seq 60); do
+	api http://localhost:9090/-/ready >/dev/null 2>&1 && break
+	sleep 1
+done
+
+count() {
+	api "http://localhost:9090/api/v1/query?query=count(count_over_time($SERIES%5B3y%5D))" | grep -o '"value":\[[^]]*\]' || echo none
+}
+echo "Activity series before: $(count)"
+api --post-data '' "http://localhost:9090/api/v1/admin/tsdb/delete_series?match%5B%5D=$SERIES" >/dev/null
+# Without this the deleted samples stay on the disk, only hidden, until Prometheus compacts its blocks
+api --post-data '' http://localhost:9090/api/v1/admin/tsdb/clean_tombstones >/dev/null
+after=$(count)
+echo "Activity series after: $after"
+if [ "$after" != none ]; then
+	echo "Not everything was deleted." >&2
+	exit 1
+fi
+echo "The activity history is gone; the dashboard fills up again from now on."
