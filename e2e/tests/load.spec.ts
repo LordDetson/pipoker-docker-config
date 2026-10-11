@@ -53,7 +53,9 @@ test(`${rooms} teams of ${peoplePerRoom} plan at the same time`, async () => {
         deck: {cards},
         participants: [{nickname: 'Member1', watcher: false}],
         // Leaves the room out of the activity dashboard, see START_PAGE
-        source: {from: 'test'}
+        source: {from: 'test'},
+        // No browser here to run the human check in: the server's bypass token passes instead
+        humanCheckToken: process.env.HUMAN_CHECK_BYPASS_TOKEN || undefined
       });
       const room = await created;
       const members = clients.slice(index * peoplePerRoom, (index + 1) * peoplePerRoom)

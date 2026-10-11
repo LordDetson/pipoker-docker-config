@@ -1,6 +1,8 @@
 // Creates a room in a running environment and waits for a room event sent through the broker.
 // Then both participants leave, which deletes the room, so repeated checks don't pile up rooms in the database.
 // Usage: node smoke-test.mjs <base url>, e.g. node smoke-test.mjs https://qa.pipoker.app
+// Where the server asks for the human check before creating a room, HUMAN_CHECK_BYPASS_TOKEN must hold the server's
+// bypass token: this check has no browser to run Cloudflare's check in.
 const baseUrl = new URL(process.argv[2] ?? 'http://localhost');
 const wsUrl = `${baseUrl.protocol === 'https:' ? 'wss' : 'ws'}://${baseUrl.host}/ws/websocket`;
 
@@ -32,6 +34,7 @@ ws.onmessage = (event) => {
       participants: [{ nickname: 'Alice', watcher: false }],
       // A check, not a visitor: the room and everything in it stay out of the activity dashboard
       source: { from: 'test' },
+      humanCheckToken: process.env.HUMAN_CHECK_BYPASS_TOKEN || undefined,
     })));
   } else if (command === 'MESSAGE' && data.includes('destination:/user/topic/room.errors')) {
     fail(body);

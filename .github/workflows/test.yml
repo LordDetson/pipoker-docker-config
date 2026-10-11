@@ -8,6 +8,9 @@ on:
 jobs:
   server:
     runs-on: ubuntu-latest
+    env:
+      # The CI copy's bypass token for ./check, which creates a room without a browser (see the environment files)
+      HUMAN_CHECK_BYPASS_TOKEN: ci-bypass
     steps:
       - uses: actions/checkout@v4
 
@@ -18,8 +21,10 @@ jobs:
       - name: Configure QA and PROD with the latest images from main
         working-directory: server
         run: |
+          # QA's human check runs with Cloudflare's test keys; ./check creates its room with the bypass token
           for environment in qa prod; do
-            sed 's/_TAG=.*/_TAG=main/' "$environment.env.example" > "$environment.env"
+            sed -e 's/_TAG=.*/_TAG=main/' -e "s/^HUMAN_CHECK_BYPASS_TOKEN=.*/HUMAN_CHECK_BYPASS_TOKEN=$HUMAN_CHECK_BYPASS_TOKEN/" \
+              "$environment.env.example" > "$environment.env"
           done
           printf 'PROD_DOMAIN=http://prod.localhost\nQA_DOMAIN=http://qa.localhost\nQA_USERNAME=test\nQA_COOKIE_TOKEN=test\n' > caddy/.env
           echo "QA_PASSWORD_HASH='$(docker run --rm caddy:2-alpine caddy hash-password --plaintext test)'" >> caddy/.env

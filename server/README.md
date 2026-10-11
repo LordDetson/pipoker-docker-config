@@ -173,18 +173,26 @@ The token is an Atlassian API token with scopes, limited to creating issues:
 3. `./update` restarts the backends with the token. To file the feedback in another project, add `JIRA_PROJECT=<key>`
    to both files and run `./update` again.
 
-Robots don't get through: the form runs [Cloudflare Turnstile](https://developers.cloudflare.com/turnstile/), an
-invisible human check. While a person writes, Cloudflare checks the browser in a hidden frame and gives the page a
-token; the backend asks Cloudflare whether it is a person's and answers 403 when it isn't. People see and click
-nothing. The script loads with the form, not with the site. If Cloudflare can't be reached or doesn't know the secret
-key, messages are taken anyway (the backend log says so). Until both keys are set, messages are taken from everyone.
+Robots don't get through, neither here nor when creating a room: both forms run
+[Cloudflare Turnstile](https://developers.cloudflare.com/turnstile/), an invisible human check. While a person fills
+the form in, Cloudflare checks the browser in a hidden frame and gives the page a token; the backend asks Cloudflare
+whether it is a person's and refuses the message (403) or the room (NOT_HUMAN) when it isn't. People see and click
+nothing. The script loads when the person opens the feedback form or first touches the room form, not with the site.
+If Cloudflare can't be reached or doesn't know the secret key, requests pass anyway (the backend log says so). Until
+both keys are set, everyone passes.
+
+The server's own checks create rooms without a browser: the PROD monitor (`./check`, `smoke-test.mjs`) and the load
+test. They send `HUMAN_CHECK_BYPASS_TOKEN`, a secret the backend takes in place of Cloudflare's token. Run `./check`
+by hand with it too: `HUMAN_CHECK_BYPASS_TOKEN=<token> ./check https://pipoker.app`.
 
 1. In the Cloudflare dashboard: **Turnstile** → **Add widget**, name `PiPoker`, hostname `pipoker.app`, widget mode
    **Invisible**, pre-clearance **No**.
-2. In `prod.env` set `TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY` to the widget's keys. `qa.env` keeps
-   Cloudflare's test keys from `qa.env.example`, which always pass unseen, so the tests' browsers aren't taken for
-   robots there.
-3. `./update` restarts the backends with the keys.
+2. Make a bypass token, for example `openssl rand -hex 32`, and save it as the repository secret
+   `HUMAN_CHECK_BYPASS_TOKEN` (Settings → Secrets and variables → Actions) for the monitor and the live tests.
+3. In `prod.env` set `TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY` to the widget's keys and
+   `HUMAN_CHECK_BYPASS_TOKEN` to the bypass token. `qa.env` keeps Cloudflare's test keys from `qa.env.example`,
+   which always pass unseen, so the tests' browsers aren't taken for robots there, and gets the same bypass token.
+4. `./update` restarts the backends with the keys.
 
 ## Releasing to PROD
 
