@@ -716,7 +716,7 @@
       "id": 16,
       "type": "bargauge",
       "title": "Visits by source",
-      "description": "Start page opens in the selected period by where people came from: the from parameter of the link (habr, tg, vk, boosty, alternativeto, saashub, producthunt, video, github), otherwise the referring site, otherwise direct. other_link is a from value nobody handed out, other_site a site not in the list",
+      "description": "Start page opens in the selected period by where people came from: the from parameter of the link (habr, tg, vk, boosty, alternativeto, saashub, producthunt, video, github), otherwise the referring site, otherwise direct. other_link is a from value nobody handed out, other_site a site not in the list, bot a search engine robot or another script rather than a person",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -822,7 +822,7 @@
       "id": 14,
       "type": "timeseries",
       "title": "Visits by source, per day",
-      "description": "Start page opens by where people came from: the from parameter of the link (habr, tg, vk, boosty, alternativeto, saashub, producthunt, video, github), otherwise the referring site, otherwise direct. other_link is a from value nobody handed out, other_site a site not in the list. A point per finished day; today's visits appear tomorrow",
+      "description": "Start page opens by where people came from: the from parameter of the link (habr, tg, vk, boosty, alternativeto, saashub, producthunt, video, github), otherwise the referring site, otherwise direct. other_link is a from value nobody handed out, other_site a site not in the list, bot a search engine robot or another script rather than a person. A point per finished day; today's visits appear tomorrow",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
