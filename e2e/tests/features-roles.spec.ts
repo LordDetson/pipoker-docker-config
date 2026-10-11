@@ -58,7 +58,7 @@ async function expectRoles(everyone: Person[], voters: string[], watcherNames: s
 async function expectHiddenCards(everyone: Person[]) {
   for (const someone of everyone) {
     await expect(shownCards(someone), `${someone.name} sees no card values yet`).toHaveCount(0);
-    await expect(someone.page.locator('app-voting-result-chart canvas'), `${someone.name} sees no chart yet`).toHaveCount(0);
+    await expect(someone.page.locator('app-voting-result'), `${someone.name} sees no result yet`).toHaveCount(0);
   }
 }
 
