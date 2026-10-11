@@ -1,15 +1,5 @@
 import {expect, Locator, test} from '@playwright/test';
-import {
-  baseUrl,
-  createRoom,
-  expectSeats,
-  leaveAll,
-  noConsoleErrors,
-  person,
-  type Person,
-  testRoomName,
-  timed
-} from './people';
+import {baseUrl, createRoom, expectSeats, leaveAll, noConsoleErrors, person, type Person, START_PAGE, testRoomName, timed} from './people';
 
 // The start page and what surrounds a room: the decks offered when a room is created, the field for a pasted
 // invitation, the language and the theme in the header, and how the header shrinks when a room name is long.
@@ -26,7 +16,7 @@ const deckCards = (someone: Person): Locator => someone.page.locator('app-deck-c
 const stored = (someone: Person, key: string) => someone.page.evaluate(key => localStorage.getItem(key), key);
 
 async function openStartPage(someone: Person) {
-  await someone.page.goto('/');
+  await someone.page.goto(START_PAGE);
   await expect(deckSelect(someone)).toBeVisible();
 }
 

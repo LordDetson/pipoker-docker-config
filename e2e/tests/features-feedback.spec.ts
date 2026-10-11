@@ -1,18 +1,5 @@
 import {expect, Locator, Request, test} from '@playwright/test';
-import {
-  baseUrl,
-  createRoom,
-  expectRevealed,
-  expectSeats,
-  expectVoted,
-  joinRoom,
-  leaveAll,
-  noConsoleErrors,
-  openRoomLink,
-  person,
-  type Person,
-  vote
-} from './people';
+import {baseUrl, createRoom, expectRevealed, expectSeats, expectVoted, joinRoom, leaveAll, noConsoleErrors, openRoomLink, person, type Person, START_PAGE, vote} from './people';
 
 // The Feedback button in the corner of every page and the dialog behind it, and the page shown for a room that is gone.
 // On a real server a sent message becomes a Jira issue and an e-mail to the owner, so in these tests the browser's
@@ -76,7 +63,7 @@ test('the Feedback button waits in the corner of the start page, the room and th
   const alice = await person(browser, 'Alice');
   const bob = await person(browser, 'Bob');
 
-  await alice.page.goto('/');
+  await alice.page.goto(START_PAGE);
   await expect(alice.page.locator('#roomNameInput')).toBeVisible();
   await expectInTheCorner(alice);
 
@@ -97,7 +84,7 @@ test('the Feedback button waits in the corner of the start page, the room and th
 test('someone opens the dialog, picks what it is about and is asked for a message before anything is sent', async ({browser}) => {
   const alice = await person(browser, 'Alice');
   const line = await answerFeedback(alice);
-  await alice.page.goto('/');
+  await alice.page.goto(START_PAGE);
   await openFeedback(alice);
 
   // A problem is assumed, with its question over the message
@@ -231,7 +218,7 @@ test('someone reports a problem from a room and the message carries the room and
 test('the dialog says when the browser sent too many messages or the server failed, and keeps the text for another try', async ({browser}) => {
   const alice = await person(browser, 'Alice');
   const line = await answerFeedback(alice, 429);
-  await alice.page.goto('/');
+  await alice.page.goto(START_PAGE);
   await openFeedback(alice);
   await messageField(alice).fill('The deck is empty');
 
@@ -266,7 +253,7 @@ test('the dialog says when the browser sent too many messages or the server fail
 test('someone changes their mind: Cancel, the cross and Escape close the dialog and nothing is sent', async ({browser}) => {
   const alice = await person(browser, 'Alice');
   const line = await answerFeedback(alice);
-  await alice.page.goto('/');
+  await alice.page.goto(START_PAGE);
 
   await openFeedback(alice);
   await messageField(alice).fill('Never mind');

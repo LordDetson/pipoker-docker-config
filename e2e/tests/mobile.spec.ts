@@ -1,5 +1,5 @@
 import {expect, Page, test} from '@playwright/test';
-import {createRoom, deckCard, expectRevealed, expectSeats, joinRoom, leaveAll, mainButton, noConsoleErrors, person, vote} from './people';
+import {createRoom, deckCard, expectRevealed, expectSeats, joinRoom, leaveAll, mainButton, noConsoleErrors, person, START_PAGE, vote} from './people';
 
 // The default deck has 17 cards, the most a real team is likely to see on a phone
 async function expectFitsTheScreen(page: Page, what: string) {
@@ -27,7 +27,7 @@ test('two people play a round on phones', async ({browser}, testInfo) => {
   const alice = await person(browser, 'Alice', options);
   const bob = await person(browser, 'Bob', options);
 
-  await alice.page.goto('/');
+  await alice.page.goto(START_PAGE);
   await expectFitsTheScreen(alice.page, 'create room form');
   const roomId = await createRoom(alice);
   await expectFitsTheScreen(alice.page, 'room after creating it');
