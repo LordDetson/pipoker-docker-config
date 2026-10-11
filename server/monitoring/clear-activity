@@ -48,8 +48,10 @@ for _ in $(seq 60); do
 	sleep 1
 done
 
+# Lists the series instead of querying their samples: a query over them fails with "vector cannot contain metrics
+# with the same labelset", since both names of the rooms-created counter carry the same labels
 count() {
-	api "http://localhost:9090/api/v1/query?query=count(count_over_time($SERIES%5B3y%5D))" | grep -o '"value":\[[^]]*\]' || echo none
+	api "http://localhost:9090/api/v1/series?match%5B%5D=$SERIES&start=0" | { grep -o '"__name__"' || true; } | wc -l
 }
 echo "Activity series before: $(count)"
 api --post-data '' "http://localhost:9090/api/v1/admin/tsdb/delete_series?match%5B%5D=$SERIES" >/dev/null
@@ -57,7 +59,7 @@ api --post-data '' "http://localhost:9090/api/v1/admin/tsdb/delete_series?match%
 api --post-data '' http://localhost:9090/api/v1/admin/tsdb/clean_tombstones >/dev/null
 after=$(count)
 echo "Activity series after: $after"
-if [ "$after" != none ]; then
+if [ "$after" -ne 0 ]; then
 	echo "Not everything was deleted." >&2
 	exit 1
 fi
