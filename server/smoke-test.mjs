@@ -26,8 +26,13 @@ ws.onmessage = (event) => {
   if (command === 'CONNECTED') {
     ws.send(frame('SUBSCRIBE', { id: 'created', destination: '/user/topic/room.created' }));
     ws.send(frame('SUBSCRIBE', { id: 'errors', destination: '/user/topic/room.errors' }));
-    ws.send(frame('SEND', { destination: '/app/room/create', 'content-type': 'application/json' },
-      JSON.stringify({ name: 'Smoke test', deck: { cards: ['1', '2'] }, participants: [{ nickname: 'Alice', watcher: false }] })));
+    ws.send(frame('SEND', { destination: '/app/room/create', 'content-type': 'application/json' }, JSON.stringify({
+      name: 'Smoke test',
+      deck: { cards: ['1', '2'] },
+      participants: [{ nickname: 'Alice', watcher: false }],
+      // A check, not a visitor: the room and everything in it stay out of the activity dashboard
+      source: { from: 'test' },
+    })));
   } else if (command === 'MESSAGE' && data.includes('destination:/user/topic/room.errors')) {
     fail(body);
   } else if (command === 'MESSAGE' && !roomId) {

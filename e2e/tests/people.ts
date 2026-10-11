@@ -32,9 +32,13 @@ export async function person(browser: Browser, name: string, options: BrowserCon
   return {name, page, consoleErrors, frames};
 }
 
+// The start page as the tests open it: ?from=test tells the server this is no visitor, so neither the visit nor
+// anything in the rooms created from it reaches the activity dashboard
+export const START_PAGE = '/?from=test';
+
 export async function createRoom(someone: Person, options: {deck?: string; watcher?: boolean; roomName?: string} = {}): Promise<string> {
   const {page} = someone;
-  await page.goto('/');
+  await page.goto(START_PAGE);
   await page.locator('#nicknameInput').fill(someone.name);
   await page.locator('#roomNameInput').fill(options.roomName ?? testRoomName());
   if (options.deck) {

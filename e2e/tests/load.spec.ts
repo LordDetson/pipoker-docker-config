@@ -51,7 +51,9 @@ test(`${rooms} teams of ${peoplePerRoom} plan at the same time`, async () => {
       client.send('/app/room/create', {
         name: `E2E load ${index + 1}`,
         deck: {cards},
-        participants: [{nickname: 'Member1', watcher: false}]
+        participants: [{nickname: 'Member1', watcher: false}],
+        // Leaves the room out of the activity dashboard, see START_PAGE
+        source: {from: 'test'}
       });
       const room = await created;
       const members = clients.slice(index * peoplePerRoom, (index + 1) * peoplePerRoom)
