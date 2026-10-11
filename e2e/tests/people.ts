@@ -155,10 +155,22 @@ export async function expectRevealed(everyone: Person[], votes: Record<string, s
       await expect(seat(someone, nickname).locator('.card-face .card-value'), `${someone.name} sees ${nickname}'s card`)
         .toHaveText(value);
     }
-    await expect(someone.page.locator('app-voting-result-chart canvas'), `${someone.name} sees the chart`).toBeVisible();
+    await expectResult(someone, votes);
   }
   for (const nickname of Object.keys(votes)) {
     await expectOnlyFaceShown(everyone[0], nickname);
+  }
+}
+
+// Once the last card has turned, the result under the table shows a pile for every picked card with how many picked it
+async function expectResult(someone: Person, votes: Record<string, string>) {
+  const counts = new Map<string, number>();
+  Object.values(votes).forEach(card => counts.set(card, (counts.get(card) ?? 0) + 1));
+  const piles = someone.page.locator('app-voting-result .pile');
+  await expect(piles, `${someone.name} sees a pile for every picked card`).toHaveCount(counts.size);
+  for (const [card, count] of counts) {
+    await expect(piles.and(someone.page.locator(`[title="${card}: ${count}"]`)), `${someone.name} sees ${count} × ${card}`)
+      .toBeVisible();
   }
 }
 
