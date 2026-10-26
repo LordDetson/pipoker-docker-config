@@ -68,7 +68,7 @@ and nothing is added to the host):
 
 ```
 cd ~/pipoker-docker-config/server
-D='docker run --rm --user root -v '"$PWD"'/caddy/cloudflared:/etc/cloudflared -e TUNNEL_ORIGIN_CERT=/etc/cloudflared/cert.pem cloudflare/cloudflared:2026.10.0'
+D='docker run --rm --user root -v '"$PWD"'/caddy/cloudflared:/etc/cloudflared -e TUNNEL_ORIGIN_CERT=/etc/cloudflared/cert.pem cloudflare/cloudflared:2026.10.3'
 
 # 1. Authorise with your Cloudflare account. It prints a link; open it and pick the pipoker.app zone.
 $D tunnel login            # (prepend `-it`: docker run -it ... for this one, so the link shows)
