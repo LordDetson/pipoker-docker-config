@@ -15,10 +15,14 @@ services:
       MONGO_INITDB_DATABASE: pipoker
       MONGODB_APP_USERNAME: ${MONGODB_APP_USERNAME:?}
       MONGODB_APP_PASSWORD: ${MONGODB_APP_PASSWORD:?}
+    # Each check starts a whole mongosh (~0.6 s of CPU), so it runs every 2 s only while the container starts, which
+    # keeps the backend's start quick, and once a minute afterwards
     healthcheck:
       test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
-      interval: 5s
-      retries: 30
+      interval: 60s
+      start_period: 120s
+      start_interval: 2s
+      retries: 3
 
   rabbitmq:
     image: rabbitmq:3.12-management-alpine
@@ -28,10 +32,13 @@ services:
     environment:
       RABBITMQ_DEFAULT_USER: ${BROKER_USERNAME:?}
       RABBITMQ_DEFAULT_PASS: ${BROKER_PASSWORD:?}
+    # Each check starts a whole Erlang VM (~2 s of CPU): every 5 s that kept almost a core busy for two brokers
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "-q", "check_port_connectivity"]
-      interval: 5s
-      retries: 30
+      interval: 60s
+      start_period: 120s
+      start_interval: 2s
+      retries: 3
 
   backend:
     image: ghcr.io/lorddetson/pipoker-controller:${BACKEND_TAG:-main}
